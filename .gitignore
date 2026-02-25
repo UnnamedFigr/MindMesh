@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+.env.local
+.env.production
+backend/.env
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+*.egg-info/
+mindmesh_backend.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Misc
+*.bak
+*.tmp
+
+copilot-instructions.md
+IMPLEMENTATION_PLAN.md
