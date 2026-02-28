@@ -8,13 +8,18 @@ CHANNEL: {{ channel_name }}
 
 INSTRUCTIONS:
 1. **Quick Brief**: Create a punchy summary with clickbait assessment, time saved, hook, 3 key takeaways (with emojis), and the most impactful quote with its timestamp.
-2. **Themes**: Break the content into logical thematic sections. Each theme should cover:
+2. **Key Themes**: Break the content into logical thematic sections (2-5 themes based on content). Each theme must include:
    - A clear title and time range (MM:SS – MM:SS)
    - The core concept (1–2 sentences)
-   - Mechanics bullets (how/why it works) — **IMPORTANT: each theme must have its OWN number of bullets based on content density**. A simple theme may need only 1–2 bullets, while a complex theme with multiple sub-points may need 4–6. Do NOT use the same bullet count for every theme. Vary the count naturally based on how much substance each section covers.
+   - Mechanics bullets (how/why it works) — **IMPORTANT: vary bullet count naturally** based on content density (1-6 bullets)
    - A real-world analogy or concrete example
-3. Let the content dictate the number of themes naturally (typically 3–7 for a standard video).
-4. **CRITICAL — Timestamps**: The transcript below has inline timestamps in [MM:SS] or [H:MM:SS] format{% if duration_display %} and the video is {{ duration_display }} long{% endif %}. Your time_range values MUST use ONLY timestamps that actually appear in the transcript. Pick the nearest real [MM:SS] or [H:MM:SS] marker from the transcript for the start and end of each theme. Never invent, round, or extrapolate timestamps. If a theme starts near [12:34] in the transcript, use 12:34 — do NOT write 12:00 or 13:00.
+   - **Subtopics**: 2-4 concise subtopic strings that break the theme into finer, expandable concepts. These should be short phrases (3-8 words each) representing distinct aspects of the theme.
+3. **CRITICAL — Timestamps**: The transcript below has inline timestamps in [MM:SS] or [H:MM:SS] format{% if duration_display %} and the video is {{ duration_display }} long{% endif %}. Your time_range values MUST use ONLY timestamps that actually appear in the transcript. Pick the nearest real [MM:SS] or [H:MM:SS] marker for the start and end of each theme. Never invent, round, or extrapolate timestamps.
+4. **Markdown Output Structure**: Your markdown should ONLY contain:
+   - A brief introduction/overview paragraph
+   - Key concepts explained in prose form (NOT as a "Themes" section)
+   - For Pro tier: Quiz questions and reflection question
+   The structured theme data will be displayed separately as interactive UI components.
 
 {% if tier == "pro" %}
 PRO FEATURES:

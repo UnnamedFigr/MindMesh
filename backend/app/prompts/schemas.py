@@ -101,6 +101,11 @@ class ThemeBlock(BaseModel):
     analogy_or_example: str = Field(
         ..., description="A real-world analogy or concrete example."
     )
+    subtopics: list[str] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Optional 2-4 expandable subtopics that break down the theme into finer concepts.",
+    )
 
 
 class StudyGuideCore(BaseModel):

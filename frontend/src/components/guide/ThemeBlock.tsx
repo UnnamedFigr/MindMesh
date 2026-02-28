@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ThemeBlock as ThemeBlockType } from "@/types";
-import { ChevronDown, Clock, Lightbulb } from "lucide-react";
+import { ChevronDown, Clock, Lightbulb, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ThemeBlockProps {
@@ -17,6 +17,7 @@ export default function ThemeBlock({
   defaultOpen = false,
 }: ThemeBlockProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [subtopicsOpen, setSubtopicsOpen] = useState(false);
 
   const colors = [
     { bg: "bg-blue-50", border: "border-blue-200", accent: "text-blue-600", dot: "bg-blue-500" },
@@ -104,6 +105,41 @@ export default function ThemeBlock({
             {theme.analogy_or_example && (
               <div className={cn("text-sm italic text-gray-600 border-l-3 pl-3 py-1", color.border)}>
                 💡 {theme.analogy_or_example}
+              </div>
+            )}
+
+            {/* Subtopics — Expandable */}
+            {theme.subtopics && theme.subtopics.length > 0 && (
+              <div className="border-t pt-3 mt-3">
+                <button
+                  onClick={() => setSubtopicsOpen(!subtopicsOpen)}
+                  className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors"
+                >
+                  <ChevronRight
+                    className={cn(
+                      "w-3.5 h-3.5 transition-transform duration-200",
+                      subtopicsOpen && "rotate-90"
+                    )}
+                  />
+                  Subtopics ({theme.subtopics.length})
+                </button>
+                <div
+                  className={cn(
+                    "grid transition-all duration-200 mt-2",
+                    subtopicsOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <ul className="space-y-1.5">
+                      {theme.subtopics.map((subtopic, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                          <span className={cn("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", color.dot)} />
+                          {subtopic}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             )}
           </div>

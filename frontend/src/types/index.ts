@@ -71,6 +71,7 @@ export interface ThemeBlock {
   core_concept: string;
   mechanics: string[];
   analogy_or_example: string;
+  subtopics?: string[];
 }
 
 export interface QuizQuestion {
