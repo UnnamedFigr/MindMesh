@@ -18,6 +18,7 @@ export default function ThemeBlock({
 }: ThemeBlockProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [subtopicsOpen, setSubtopicsOpen] = useState(false);
+  const [deepDiveOpen, setDeepDiveOpen] = useState(false);
 
   const colors = [
     { bg: "bg-blue-50", border: "border-blue-200", accent: "text-blue-600", dot: "bg-blue-500" },
@@ -138,6 +139,50 @@ export default function ThemeBlock({
                         </li>
                       ))}
                     </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Deep Dive — Expandable */}
+            {theme.deep_dive && (
+              <div className="border-t pt-3 mt-3">
+                <button
+                  onClick={() => setDeepDiveOpen(!deepDiveOpen)}
+                  className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider hover:text-indigo-700 transition-colors"
+                >
+                  <ChevronRight
+                    className={cn(
+                      "w-3.5 h-3.5 transition-transform duration-200",
+                      deepDiveOpen && "rotate-90"
+                    )}
+                  />
+                  Deep Dive
+                </button>
+                <div
+                  className={cn(
+                    "grid transition-all duration-200 mt-2",
+                    deepDiveOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {theme.deep_dive.explanation}
+                      </p>
+                      {theme.deep_dive.technical_detail && (
+                        <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                          <span className="font-semibold text-gray-700">Technical Detail: </span>
+                          <span className="text-gray-600">{theme.deep_dive.technical_detail}</span>
+                        </div>
+                      )}
+                      {theme.deep_dive.related_concept && (
+                        <div className="bg-indigo-50 rounded-lg p-3 text-sm">
+                          <span className="font-semibold text-indigo-700">Related Concept: </span>
+                          <span className="text-indigo-600">{theme.deep_dive.related_concept}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getGuide, deleteGuide } from "@/lib/api";
 import GuideRenderer from "@/components/guide/GuideRenderer";
-import QuizCard from "@/components/guide/QuizCard";
 import ReflectionSection from "@/components/guide/ReflectionSection";
-import QuickBrief from "@/components/guide/QuickBrief";
 import ThemeBlock from "@/components/guide/ThemeBlock";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -98,7 +96,6 @@ export default function GuideViewerPage() {
     );
   }
 
-  const quizQuestions = guide.guide_json?.quiz ?? [];
   const thumbnail =
     guide.video_id ? getYouTubeThumbnail(guide.video_id) : null;
 
@@ -192,11 +189,6 @@ export default function GuideViewerPage() {
         </div>
       </div>
 
-      {/* Quick Brief */}
-      {guide.guide_json?.quick_brief && (
-        <QuickBrief brief={guide.guide_json.quick_brief} />
-      )}
-
       {/* Theme Blocks */}
       {guide.guide_json?.themes && guide.guide_json.themes.length > 0 && (
         <div className="mb-6">
@@ -219,24 +211,7 @@ export default function GuideViewerPage() {
         <GuideRenderer markdown={guide.guide_markdown} />
       </div>
 
-      {/* Quiz Section */}
-      {quizQuestions.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-              📝
-            </span>
-            Knowledge Check
-          </h2>
-          <div className="space-y-4">
-            {quizQuestions.map((q, i) => (
-              <QuizCard key={i} question={q} index={i} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Reflection Section */}
+      {/* Reflection & Notes Section */}
       <div className="mb-6">
         <ReflectionSection
           guideId={guide.id}
