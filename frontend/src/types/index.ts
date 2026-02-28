@@ -44,24 +44,8 @@ export interface StudyGuide {
 }
 
 export interface GuideJSON {
-  quick_brief: QuickBrief;
   themes: ThemeBlock[];
-  quiz?: QuizQuestion[];
   reflection_question?: string;
-}
-
-export interface ClickbaitScore {
-  score: number;
-  verdict: string;
-}
-
-export interface QuickBrief {
-  clickbait_score: ClickbaitScore;
-  time_saved_minutes: number;
-  hook: string;
-  key_takeaways: string[];
-  highlight_quote: string;
-  highlight_quote_timestamp: string;
 }
 
 export interface ThemeBlock {
@@ -72,14 +56,13 @@ export interface ThemeBlock {
   mechanics: string[];
   analogy_or_example: string;
   subtopics?: string[];
+  deep_dive?: DeepDive;
 }
 
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correct_index: number;
+export interface DeepDive {
   explanation: string;
-  timestamp?: string;
+  technical_detail?: string;
+  related_concept?: string;
 }
 
 export interface TriageResult {

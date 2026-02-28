@@ -46,38 +46,21 @@ class TriageResult(BaseModel):
 # ── Study Guide Output (Core Tier) ───────────────────────────────────
 
 
-class ClickbaitScore(BaseModel):
-    """Assessment of title vs. actual content alignment."""
-
-    score: int = Field(
-        ..., ge=1, le=10, description="1 = pure clickbait, 10 = perfectly accurate title"
-    )
-    verdict: str = Field(
-        ..., description="1-sentence assessment of the title's accuracy."
-    )
 
 
-class QuickBrief(BaseModel):
-    """At-a-glance summary section of the study guide."""
 
-    clickbait_score: ClickbaitScore
-    time_saved_minutes: int = Field(
-        ..., ge=0, description="Estimated minutes saved by reading the guide vs. watching."
+
+class DeepDive(BaseModel):
+    """Optional deep-dive content nested under a subtopic."""
+
+    explanation: str = Field(
+        ..., description="Detailed explanation or advanced concept (2-4 sentences)."
     )
-    hook: str = Field(
-        ..., description="Punchy 1-sentence summary of the video's core thesis."
+    technical_detail: str = Field(
+        default=None, description="Optional technical detail or mechanism."
     )
-    key_takeaways: list[str] = Field(
-        ...,
-        min_length=3,
-        max_length=3,
-        description="Exactly 3 key takeaways, each starting with an emoji.",
-    )
-    highlight_quote: str = Field(
-        ..., description="Most impactful or memorable quote from the video."
-    )
-    highlight_quote_timestamp: str = Field(
-        ..., description="Timestamp of the quote in MM:SS format."
+    related_concept: str = Field(
+        default=None, description="Optional related concept or framework."
     )
 
 
@@ -106,12 +89,14 @@ class ThemeBlock(BaseModel):
         max_length=4,
         description="Optional 2-4 expandable subtopics that break down the theme into finer concepts.",
     )
+    deep_dive: DeepDive = Field(
+        default=None, description="Optional deep-dive content for advanced learners."
+    )
 
 
 class StudyGuideCore(BaseModel):
     """Core tier study guide output (free users)."""
 
-    quick_brief: QuickBrief
     themes: list[ThemeBlock] = Field(
         ...,
         min_length=2,
@@ -122,36 +107,9 @@ class StudyGuideCore(BaseModel):
 # ── Pro Tier Extensions ──────────────────────────────────────────────
 
 
-class QuizQuestion(BaseModel):
-    """A multiple-choice quiz question for active recall."""
-
-    question: str = Field(..., description="The quiz question.")
-    options: list[str] = Field(
-        ...,
-        min_length=4,
-        max_length=4,
-        description="Exactly 4 answer options (A–D).",
-    )
-    correct_index: int = Field(
-        ..., ge=0, le=3, description="Index of the correct answer (0–3)."
-    )
-    explanation: str = Field(
-        ..., description="Brief explanation of why this is correct."
-    )
-    timestamp: str = Field(
-        ..., description="Where in the video the answer can be found (MM:SS)."
-    )
-
-
 class StudyGuidePro(StudyGuideCore):
     """Pro tier study guide output (paid users) — extends Core."""
 
-    quiz: list[QuizQuestion] = Field(
-        ...,
-        min_length=3,
-        max_length=3,
-        description="Exactly 3 active recall quiz questions.",
-    )
     reflection_question: str = Field(
         ...,
         description=(
