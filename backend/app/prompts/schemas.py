@@ -47,8 +47,13 @@ class TriageResult(BaseModel):
 
 
 
-
-
+class MemoryQuestions(BaseModel):
+    question: str = Field(
+        ..., description="The question to be asked."
+    )
+    answer: str = Field(
+        ..., description="The answer to the question."
+    )
 
 class DeepDive(BaseModel):
     """Optional deep-dive content nested under a subtopic."""
@@ -94,33 +99,40 @@ class ThemeBlock(BaseModel):
     )
 
 
-class QuickBrief(BaseModel):
-    """A rapid-consumption summary at the top of the guide."""
 
-    hook: str = Field(
-        ..., description="A 1-2 sentence compelling hook that explains why the user should care."
-    )
-    key_takeaways: list[str] = Field(
-        ...,
-        min_length=3,
-        max_length=15,
-        description="A dynamically scaled list of 3-15 takeaways depending on video length and complexity.",
-    )
-    time_saved_minutes: int = Field(
-        ..., description="Estimated minutes saved by reading the guide instead of watching."
-    )
-    highlight_quote: str = Field(
-        default=None, description="The most impactful quote from the transcript."
-    )
-    highlight_quote_timestamp: str = Field(
-        default=None, description="The timestamp of the highlight quote (e.g. 14:20)."
-    )
+# class QuickBrief(BaseModel):
+#     """A rapid-consumption summary at the top of the guide."""
+
+#     hook: str = Field(
+#         ..., description="A 1-2 sentence compelling hook that explains why the user should care."
+#     )
+#     key_takeaways: list[str] = Field(
+#         ...,
+#         min_length=3,
+#         max_length=15,
+#         description="A dynamically scaled list of 3-15 takeaways depending on video length and complexity.",
+#     )
+#     time_saved_minutes: int = Field(
+#         ..., description="Estimated minutes saved by reading the guide instead of watching."
+#     )
+#     highlight_quote: str = Field(
+#         default=None, description="The most impactful quote from the transcript."
+#     )
+#     highlight_quote_timestamp: str = Field(
+#         default=None, description="The timestamp of the highlight quote (e.g. 14:20)."
+#     )
 
 class StudyGuideCore(BaseModel):
     """Core tier study guide output (free users)."""
 
-    quick_brief: QuickBrief = Field(
-        ..., description="The dynamic rapid-consumption brief."
+    # quick_brief: QuickBrief = Field(
+    #     ..., description="The dynamic rapid-consumption brief."
+    # )
+    memory_questions: list[MemoryQuestions] = Field(
+        ...,
+        min_length=3,
+        max_length=15,
+        description="A dynamically scaled list of 3-15 memory questions depending on video length and complexity.",
     )
     themes: list[ThemeBlock] = Field(
         ...,

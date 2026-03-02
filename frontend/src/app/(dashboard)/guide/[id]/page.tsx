@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getGuide, deleteGuide } from "@/lib/api";
-import GuideRenderer from "@/components/guide/GuideRenderer";
+// import GuideRenderer from "@/components/guide/GuideRenderer";
 import ReflectionSection from "@/components/guide/ReflectionSection";
 import ThemeBlock from "@/components/guide/ThemeBlock";
 import TenSecondTakeaway from "@/components/guide/TenSecondTakeaway";
@@ -190,10 +190,10 @@ export default function GuideViewerPage() {
         </div>
       </div>
 
-      {/* 10-Second Takeaway */}
+      {/* 10-Second Takeaway
       {guide.guide_json?.quick_brief && (
         <TenSecondTakeaway brief={guide.guide_json.quick_brief} />
-      )}
+      )} */}
       {/* Theme Blocks */}
       {guide.guide_json?.themes && guide.guide_json.themes.length > 0 && (
         <div className="mb-6">
@@ -210,10 +210,7 @@ export default function GuideViewerPage() {
           </div>
         </div>
       )}
-
-
-
-
+      {/* <RefreshableQuesions /> */}
       {/* Reflection & Notes Section */}
       <div className="mb-6">
         <ReflectionSection

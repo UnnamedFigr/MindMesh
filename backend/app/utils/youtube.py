@@ -164,7 +164,6 @@ async def extract_chapters(video_id: str) -> list[dict] | None:
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
-            "extract_flat": True,
             "dumpsubtitles": False,
         }
         
@@ -181,7 +180,10 @@ async def extract_chapters(video_id: str) -> list[dict] | None:
                     })
                 return chapters if len(chapters) > 0 else None
                 
-    except Exception:
+    except Exception as e:
+        import structlog
+        logger = structlog.get_logger()
+        logger.warning("youtube.chapter_extraction_failed", error=str(e), video_id=video_id)
         # Silently fail if yt-dlp cannot extract chapters, the fallback is LLM generation
         pass
         
