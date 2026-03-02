@@ -44,20 +44,26 @@ export interface StudyGuide {
 }
 
 export interface GuideJSON {
-  quick_brief?: {
-    hook: string;
-    key_takeaways: string[];
-    clickbait_score?: {
-      score: number;
-      verdict: string;
-    };
-    time_saved_minutes?: number;
-    highlight_quote?: string;
-    highlight_quote_timestamp?: string;
-  };
+  // quick_brief?: {
+  //   hook: string;
+  //   key_takeaways: string[];
+  //   clickbait_score?: {
+  //     score: number;
+  //     verdict: string;
+  //   };
+  //   time_saved_minutes?: number;
+  //   highlight_quote?: string;
+  //   highlight_quote_timestamp?: string;
+  // };
+  memory_questions?: MemoryQuestions[] | null;
   themes: ThemeBlock[];
   quiz?: QuizQuestion[];
   reflection_question?: string;
+}
+
+export interface MemoryQuestions {
+  question: string;
+  answer: string;
 }
 
 export interface QuizQuestion {
