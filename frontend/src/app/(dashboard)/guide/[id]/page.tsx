@@ -6,6 +6,7 @@ import { getGuide, deleteGuide } from "@/lib/api";
 import GuideRenderer from "@/components/guide/GuideRenderer";
 import ReflectionSection from "@/components/guide/ReflectionSection";
 import ThemeBlock from "@/components/guide/ThemeBlock";
+import TenSecondTakeaway from "@/components/guide/TenSecondTakeaway";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
@@ -189,6 +190,10 @@ export default function GuideViewerPage() {
         </div>
       </div>
 
+      {/* 10-Second Takeaway */}
+      {guide.guide_json?.quick_brief && (
+        <TenSecondTakeaway brief={guide.guide_json.quick_brief} />
+      )}
       {/* Theme Blocks */}
       {guide.guide_json?.themes && guide.guide_json.themes.length > 0 && (
         <div className="mb-6">
@@ -206,10 +211,8 @@ export default function GuideViewerPage() {
         </div>
       )}
 
-      {/* Guide Content (Markdown) */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8 mb-6">
-        <GuideRenderer markdown={guide.guide_markdown} />
-      </div>
+
+
 
       {/* Reflection & Notes Section */}
       <div className="mb-6">

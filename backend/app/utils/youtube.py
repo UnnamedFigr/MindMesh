@@ -43,6 +43,7 @@ class VideoMetadata:
     channel_name: str
     thumbnail_url: str
     duration_seconds: int | None = None
+    chapters: list[dict] | None = None
 
 
 def extract_video_id(url: str) -> str:
@@ -148,3 +149,40 @@ async def validate_video(video_id: str) -> VideoMetadata:
 def is_playlist_url(url: str) -> bool:
     """Check if the URL is a playlist-only URL (no video ID)."""
     return "list=" in url and "v=" not in url and "youtu.be/" not in url
+
+
+async def extract_chapters(video_id: str) -> list[dict] | None:
+    """
+    Extract YouTube chapters (timestamps and titles) using yt-dlp.
+    Returns:
+        [{"title": "Intro", "start_time": 0.0, "end_time": 60.0}, ...]
+    """
+    try:
+        import yt_dlp
+        
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "extract_flat": True,
+            "dumpsubtitles": False,
+        }
+        
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if info and "chapters" in info and info["chapters"]:
+                chapters = []
+                for chapter in info["chapters"]:
+                    chapters.append({
+                        "title": chapter.get("title", "Untitled Chapter"),
+                        "start_time": chapter.get("start_time", 0.0),
+                        "end_time": chapter.get("end_time", 0.0)
+                    })
+                return chapters if len(chapters) > 0 else None
+                
+    except Exception:
+        # Silently fail if yt-dlp cannot extract chapters, the fallback is LLM generation
+        pass
+        
+    return None

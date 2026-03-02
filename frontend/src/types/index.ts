@@ -44,8 +44,27 @@ export interface StudyGuide {
 }
 
 export interface GuideJSON {
+  quick_brief?: {
+    hook: string;
+    key_takeaways: string[];
+    clickbait_score?: {
+      score: number;
+      verdict: string;
+    };
+    time_saved_minutes?: number;
+    highlight_quote?: string;
+    highlight_quote_timestamp?: string;
+  };
   themes: ThemeBlock[];
+  quiz?: QuizQuestion[];
   reflection_question?: string;
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
 }
 
 export interface ThemeBlock {
@@ -124,12 +143,6 @@ export const PERSONA_OPTIONS: PersonaOption[] = [
     name: "Academic",
     emoji: "🎓",
     description: "Technical depth, mechanisms, frameworks",
-  },
-  {
-    id: "practitioner",
-    name: "Practitioner",
-    emoji: "⚡",
-    description: "Comprehensive depth, actionable steps",
   },
 ];
 
