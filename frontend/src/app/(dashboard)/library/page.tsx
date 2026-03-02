@@ -19,10 +19,9 @@ import { formatDate, getYouTubeThumbnail } from "@/lib/utils";
 import type { StudyGuideListItem, Persona } from "@/types";
 
 const PERSONA_FILTERS: { label: string; value: Persona | "all" }[] = [
-  { label: "All", value: "all" },
+  { label: "All Personas", value: "all" },
   { label: "🌱 Beginner", value: "beginner" },
   { label: "🎓 Academic", value: "academic" },
-  { label: "⚡ Practitioner", value: "practitioner" },
 ];
 
 const PERSONA_EMOJI: Record<string, string> = {
@@ -120,11 +119,10 @@ export default function LibraryPage() {
             <button
               key={f.value}
               onClick={() => setPersona(f.value)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                persona === f.value
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${persona === f.value
+                ? "bg-indigo-100 text-indigo-700"
+                : "bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
+                }`}
             >
               {f.label}
             </button>

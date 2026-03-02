@@ -7,15 +7,21 @@ CHANNEL: {{ channel_name }}
 {{ persona_instructions }}
 
 INSTRUCTIONS:
-1. **Key Themes**: Break the content into logical thematic sections (2-5 themes based on content). Each theme must include:
-   - A clear title and time range (MM:SS – MM:SS)
+1. **Quick Brief (Takeaways)**: Generate a rapid-consumption hook and a dynamically scaled list of `key_takeaways` (between 3 and 15 points). Scale the number of takeaways proportionately to the duration and conceptual density of the video. Over-explain if complex; be brief if simple.
+2. **Key Themes**: Break the content into logical thematic sections. {% if chapters %}
+   **CRITICAL CHAPTER INSTRUCTION:** You have been provided with the creator's official YouTube chapters below. You MUST use EXACTLY these chapters as your "Themes". Do not invent new themes. If there are more than 5 chapters, consolidate them logically into 2-5 major themes, but preserve their exact starting timestamps and titles.
+   {% else %}
+   Break the content into 2-5 themes based on natural logical divisions.
+   {% endif %}
+   Each theme must include:
+   - A clear title and time range (MM:SS – MM:SS). {% if chapters %}Use the chapter timestamps provided below.{% endif %}
    - The core concept (1–2 sentences)
    - Mechanics bullets (how/why it works) — **IMPORTANT: vary bullet count naturally** based on content density (1-6 bullets)
    - A real-world analogy or concrete example
    - **Subtopics**: 2-4 concise subtopic strings that break the theme into finer, expandable concepts. These should be short phrases (3-8 words each) representing distinct aspects of the theme.
    - **Deep Dive** (optional): For complex themes, include a deeper explanation with technical details and related concepts for advanced learners.
-2. **CRITICAL — Timestamps**: The transcript below has inline timestamps in [MM:SS] or [H:MM:SS] format{% if duration_display %} and the video is {{ duration_display }} long{% endif %}. Your time_range values MUST use ONLY timestamps that actually appear in the transcript. Pick the nearest real [MM:SS] or [H:MM:SS] marker for the start and end of each theme. Never invent, round, or extrapolate timestamps.
-3. **Markdown Output Structure**: Your markdown should ONLY contain:
+3. **CRITICAL — Timestamps**: The transcript below has inline timestamps in [MM:SS] or [H:MM:SS] format{% if duration_display %} and the video is {{ duration_display }} long{% endif %}. Your time_range values MUST use ONLY timestamps that actually appear in the transcript{% if chapters %} or in the provided Chapters list{% endif %}. Pick the nearest real marker for the start and end of each theme. Never invent, round, or extrapolate timestamps.
+4. **Markdown Output Structure**: Your markdown should ONLY contain:
    - A brief introduction/overview paragraph
    - Key concepts explained in prose form (NOT as a "Themes" section)
    - For Pro tier: Reflection question only
@@ -27,6 +33,15 @@ PRO FEATURES:
 {% endif %}
 
 ---
+
+{% if chapters %}
+OFFICIAL YOUTUBE CHAPTERS:
+These are the exact timestamps and structure created by the video author. You must use these to structure your Themes block.
+{% for chapter in chapters %}
+- [{{ chapter.start_time }} - {{ chapter.end_time }}] {{ chapter.title }}
+{% endfor %}
+---
+{% endif %}
 
 TRANSCRIPT:
 {{ transcript }}

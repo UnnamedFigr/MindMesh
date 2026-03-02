@@ -119,21 +119,25 @@ export default function LandingPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {["🌱 Beginner", "🎓 Academic", "⚡ Practitioner"].map(
-                    (p, i) => (
-                      <div
-                        key={p}
-                        className={`text-xs px-3 py-2 rounded-lg border transition-all ${
-                          i === 0
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm"
-                            : "border-gray-200 bg-white text-gray-500"
-                        }`}
-                      >
-                        {p}
-                      </div>
-                    )
-                  )}
+                <div className="flex flex-wrap gap-3 pb-2 pt-1 border-b border-white/5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 mr-2 mt-2">
+                    1. CHOOSE PERSONA:
+                  </span>
+                  <div className="flex gap-2">
+                    {["🌱 Beginner", "🎓 Academic"].map(
+                      (persona, i) => (
+                        <div
+                          key={persona}
+                          className={`px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 transition-colors cursor-pointer ${i === 0
+                              ? "bg-indigo-600 text-white font-medium shadow-sm hover:bg-indigo-700"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                        >
+                          {persona}
+                        </div>
+                      )
+                    )}
+                  </div>
                 </div>
                 <div className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-3 rounded-xl text-center transition-colors cursor-default">
                   Generate Study Guide
@@ -187,8 +191,8 @@ export default function LandingPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <FeatureCard
             icon={<Users className="w-5 h-5 text-indigo-600" />}
-            title="3 Personas"
-            description="Beginner, Academic, or Practitioner — each gets a different guide."
+            title="Tailored to your learning style"
+            description="Beginner or Academic — each gets a different guide."
           />
           <FeatureCard
             icon={<BarChart3 className="w-5 h-5 text-amber-500" />}
@@ -210,11 +214,6 @@ export default function LandingPage() {
             title="Reflection"
             description="Guided writing prompts to internalize the material."
           />
-          <FeatureCard
-            icon={<Zap className="w-5 h-5 text-cyan-500" />}
-            title="30 Seconds"
-            description="Full study guide generated in under half a minute."
-          />
         </div>
       </section>
 
@@ -231,8 +230,8 @@ export default function LandingPage() {
           />
           <Step
             number="2"
-            title="Pick your persona"
-            description="Beginner, Academic, or Practitioner — we adapt the guide to you."
+            title="Three learning personas."
+            description="Beginner or Academic — we adapt the guide to you."
           />
           <Step
             number="3"
@@ -267,9 +266,9 @@ export default function LandingPage() {
                 role: "Self-learner",
               },
               {
-                quote: "Practitioner persona cuts straight to actionable steps. Love it.",
-                name: "Sam T.",
-                role: "Developer",
+                quote: "The Academic persona is perfect for diving deep into industry talks. Love it.",
+                name: "Aisha K.",
+                role: "Product Manager",
               },
             ].map((t) => (
               <div key={t.name} className="text-center">

@@ -118,106 +118,105 @@ export default function DashboardPage() {
       </div>
 
       <CreditsGate>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-5 animate-scale-in">
-        {/* URL Input — big and prominent */}
-        <div>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Link2 className="w-4 h-4 text-gray-400" />
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-5 animate-scale-in">
+          {/* URL Input — big and prominent */}
+          <div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Link2 className="w-4 h-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Paste a YouTube URL here..."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onPaste={handlePaste}
+                onKeyDown={handleKeyDown}
+                autoComplete="off"
+                className="w-full pl-10 pr-10 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
+              />
+              {url && (
+                <button
+                  onClick={() => setUrl("")}
+                  title="Clear URL"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            <input
-              type="text"
-              placeholder="Paste a YouTube URL here..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onPaste={handlePaste}
-              onKeyDown={handleKeyDown}
-              autoComplete="off"
-              className="w-full pl-10 pr-10 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
-            />
-            {url && (
-              <button
-                onClick={() => setUrl("")}
-                title="Clear URL"
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            {url && !isValid && (
+              <p className="text-xs text-red-500 mt-1.5 ml-1">
+                Please enter a valid YouTube URL
+              </p>
             )}
           </div>
-          {url && !isValid && (
-            <p className="text-xs text-red-500 mt-1.5 ml-1">
-              Please enter a valid YouTube URL
-            </p>
-          )}
-        </div>
 
-        {/* Video thumbnail preview */}
-        {videoId && (
-          <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 border border-gray-100 animate-in fade-in duration-200">
-            <img
-              src={getYouTubeThumbnail(videoId)}
-              alt="Video thumbnail"
-              className="w-24 h-16 object-cover rounded-lg flex-shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="text-xs text-gray-500">Video detected</p>
-              <p className="text-sm text-gray-700 font-medium truncate">
-                {videoId}
-              </p>
+          {/* Video thumbnail preview */}
+          {videoId && (
+            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 border border-gray-100 animate-in fade-in duration-200">
+              <img
+                src={getYouTubeThumbnail(videoId)}
+                alt="Video thumbnail"
+                className="w-24 h-16 object-cover rounded-lg flex-shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500">Video detected</p>
+                <p className="text-sm text-gray-700 font-medium truncate">
+                  {videoId}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Persona selector — compact inline */}
+          <div>
+            <p className="text-xs text-gray-500 font-medium mb-2">
+              Learning style
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {PERSONA_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setPersona(opt.id)}
+                  className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all text-center ${persona === opt.id
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                >
+                  <span className="text-xl mb-1">{opt.emoji}</span>
+                  <span className="text-xs font-semibold text-gray-900">
+                    {opt.name}
+                  </span>
+                  <span className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                    {opt.description}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {/* Persona selector — compact inline */}
-        <div>
-          <p className="text-xs text-gray-500 font-medium mb-2">
-            Learning style
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid || submitting}
+            loading={submitting}
+            className="w-full"
+            size="lg"
+          >
+            Generate Study Guide
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+
+          <p className="text-[11px] text-gray-400 text-center">
+            Uses 1 credit per guide. Free tier: 3 credits/day.
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {PERSONA_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => setPersona(opt.id)}
-                className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all text-center ${
-                  persona === opt.id
-                    ? "border-indigo-500 bg-indigo-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <span className="text-xl mb-1">{opt.emoji}</span>
-                <span className="text-xs font-semibold text-gray-900">
-                  {opt.name}
-                </span>
-                <span className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                  {opt.description}
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
-
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
-            {error}
-          </p>
-        )}
-
-        <Button
-          onClick={handleSubmit}
-          disabled={!isValid || submitting}
-          loading={submitting}
-          className="w-full"
-          size="lg"
-        >
-          Generate Study Guide
-          <ArrowRight className="w-4 h-4 ml-2" />
-        </Button>
-
-        <p className="text-[11px] text-gray-400 text-center">
-          Uses 1 credit per guide. Free tier: 3 credits/day.
-        </p>
-      </div>
       </CreditsGate>
     </div>
   );
