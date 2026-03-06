@@ -47,14 +47,19 @@ class TriageResult(BaseModel):
 
 
 
-
-
+class MemoryQuestions(BaseModel):
+    question: str = Field(
+        ..., description="The question to be asked."
+    )
+    answer: str = Field(
+        ..., description="The answer to the question."
+    )
 
 class DeepDive(BaseModel):
     """Optional deep-dive content nested under a subtopic."""
 
     explanation: str = Field(
-        ..., description="Detailed explanation or advanced concept (2-4 sentences)."
+        default=None, description="Detailed explanation or advanced concept (2-4 sentences)."
     )
     technical_detail: str = Field(
         default=None, description="Optional technical detail or mechanism."
@@ -97,6 +102,15 @@ class ThemeBlock(BaseModel):
 class StudyGuideCore(BaseModel):
     """Core tier study guide output (free users)."""
 
+    tldr: str = Field(
+        ..., description="A concise TL;DR summary of the video, dynamically scaled to the video's length and complexity (2-8 sentences).",
+    )
+    memory_questions: list[MemoryQuestions] = Field(
+        ...,
+        min_length=3,
+        max_length=15,
+        description="A dynamically scaled list of 3-15 memory questions depending on video length and complexity.",
+    )
     themes: list[ThemeBlock] = Field(
         ...,
         min_length=2,

@@ -7,26 +7,58 @@ CHANNEL: {{ channel_name }}
 {{ persona_instructions }}
 
 INSTRUCTIONS:
-1. **Key Themes**: Break the content into logical thematic sections (2-5 themes based on content). Each theme must include:
-   - A clear title and time range (MM:SS – MM:SS)
+
+1. **TL;DR Summary**: Write a concise but thorough "tldr" summary of the video's content. Scale the length dynamically:
+   - Short/simple videos (< 15 min): 2-3 sentences
+   - Medium videos (15-45 min): 3-5 sentences
+   - Long/complex videos (45+ min): 5-8 sentences
+   The summary should capture the core message, key arguments, and practical takeaways so someone can decide whether to watch the full video.
+
+2. **Memory Questions**: Generate active recall questions with brief answers that test the viewer's understanding and retention of the material. Scale the count to the video length: 5-8 for short videos, 8-12 for medium, 12-15 for long. Questions should:
+   - Cover all major topics discussed in the video
+   - Mix factual recall ("What is...?") with conceptual understanding ("Why does...?")
+   - Have concise answers (1-2 sentences each)
+
+3. **Key Themes**: Break the content into logical thematic sections. {% if chapters %}
+   **CRITICAL CHAPTER INSTRUCTION:** You have been provided with the creator's official YouTube chapters below. You MUST create one Theme for EACH chapter — do not consolidate, merge, or skip any.
+   Use the exact chapter title and timestamps. The number of themes MUST equal the number of chapters provided.
+   **OUTPUT BUDGET:** Because there are {{ chapters | length }} chapters, keep each theme compact: core_concept (1 sentence), mechanics (1-3 bullets), analogy_or_example (1 sentence). Only include deep_dive for the most complex themes. Omit subtopics if there are more than 6 chapters.
+   {% else %}
+   Break the content into themes based on natural logical divisions. Scale the number of themes to the video length: 2-3 for short videos, 4-6 for medium, 6-8+ for long/complex ones.
+   {% endif %}
+   Each theme must include:
+   - A clear title and time range (MM:SS – MM:SS). {% if chapters %}Use the chapter timestamps provided below.{% endif %}
    - The core concept (1–2 sentences)
-   - Mechanics bullets (how/why it works) — **IMPORTANT: vary bullet count naturally** based on content density (1-6 bullets)
+   - Mechanics bullets (how/why it works) — vary bullet count based on content density (1-6 bullets)
    - A real-world analogy or concrete example
-   - **Subtopics**: 2-4 concise subtopic strings that break the theme into finer, expandable concepts. These should be short phrases (3-8 words each) representing distinct aspects of the theme.
-   - **Deep Dive** (optional): For complex themes, include a deeper explanation with technical details and related concepts for advanced learners.
-2. **CRITICAL — Timestamps**: The transcript below has inline timestamps in [MM:SS] or [H:MM:SS] format{% if duration_display %} and the video is {{ duration_display }} long{% endif %}. Your time_range values MUST use ONLY timestamps that actually appear in the transcript. Pick the nearest real [MM:SS] or [H:MM:SS] marker for the start and end of each theme. Never invent, round, or extrapolate timestamps.
-3. **Markdown Output Structure**: Your markdown should ONLY contain:
-   - A brief introduction/overview paragraph
-   - Key concepts explained in prose form (NOT as a "Themes" section)
-   - For Pro tier: Reflection question only
-   The structured theme data will be displayed separately as interactive UI components.
+   {% if not chapters or chapters | length <= 6 %}- **Subtopics**: 2-4 concise subtopic strings (3-8 words each) representing distinct aspects of the theme.
+   - **Deep Dive** (optional): For complex themes, include a deeper explanation with technical details and related concepts.{% endif %}
+
+4. **CRITICAL — Timestamps**: The transcript below has inline timestamps in [MM:SS] or [H:MM:SS] format{% if duration_display %} and the video is {{ duration_display }} long{% endif %}. Your time_range values MUST use ONLY timestamps that actually appear in the transcript{% if chapters %} or in the provided Chapters list{% endif %}. Pick the nearest real marker for the start and end of each theme. Never invent, round, or extrapolate timestamps.
 
 {% if tier == "pro" %}
 PRO FEATURES:
-4. **Reflection Question**: One open-ended question connecting the material to the learner's personal experience or future applications.
+5. **Reflection Question**: One open-ended question connecting the material to the learner's personal experience or future applications.
 {% endif %}
 
 ---
+
+{% if chapters %}
+OFFICIAL YOUTUBE CHAPTERS:
+These are the exact timestamps and structure created by the video author. You must use these to structure your Themes block.
+{% for chapter in chapters %}
+{% set start_h = (chapter.start_time // 3600) | int %}
+{% set start_m = ((chapter.start_time % 3600) // 60) | int %}
+{% set start_s = (chapter.start_time % 60) | int %}
+{% set end_h = (chapter.end_time // 3600) | int %}
+{% set end_m = ((chapter.end_time % 3600) // 60) | int %}
+{% set end_s = (chapter.end_time % 60) | int %}
+{% if start_h > 0 %}- [{{ start_h }}:{{ '%02d' % start_m }}:{{ '%02d' % start_s }} – {{ end_h }}:{{ '%02d' % end_m }}:{{ '%02d' % end_s }}] {{ chapter.title }}
+{% else %}- [{{ '%02d' % start_m }}:{{ '%02d' % start_s }} – {{ '%02d' % end_m }}:{{ '%02d' % end_s }}] {{ chapter.title }}
+{% endif %}
+{% endfor %}
+---
+{% endif %}
 
 TRANSCRIPT:
 {{ transcript }}

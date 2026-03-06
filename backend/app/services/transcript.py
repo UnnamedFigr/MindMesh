@@ -29,6 +29,7 @@ from youtube_transcript_api._errors import (
 from app.config import get_settings
 from app.utils.errors import TranscriptError
 from app.utils.tokens import count_tokens
+from app.utils.youtube import extract_chapters
 
 logger = structlog.get_logger()
 
@@ -51,10 +52,15 @@ async def fetch_transcript(
     """
     settings = get_settings()
 
-    # ── Step 1: Check cache ──────────────────────────────────────
+    # ── Step 1: Check cache & fetch chapters ─────────────────────
+    
+    # Always try to fetch chapters fresh, even if transcript is cached
+    chapters = await extract_chapters(youtube_id)
+    
     cached = await _check_cache(youtube_id, supabase_client)
     if cached:
         logger.info("transcript.cache_hit", youtube_id=youtube_id)
+        cached["chapters"] = chapters
         return cached
 
     # ── Step 2 & 3: YouTube captions ─────────────────────────────
@@ -66,6 +72,7 @@ async def fetch_transcript(
                 youtube_id=youtube_id,
                 source=result["transcript_source"],
             )
+            result["chapters"] = chapters
             await _store_cache(youtube_id, result, supabase_client)
             return result
     except TranscriptError:
@@ -73,11 +80,11 @@ async def fetch_transcript(
     except Exception as exc:
         logger.warning("transcript.youtube_failed", youtube_id=youtube_id, error=str(exc))
 
-    # ── Step 4: Groq Whisper fallback ────────────────────────────
     try:
         result = await _transcribe_with_whisper(youtube_id, settings)
         if result:
             logger.info("transcript.whisper_success", youtube_id=youtube_id)
+            result["chapters"] = chapters
             await _store_cache(youtube_id, result, supabase_client)
             return result
     except Exception as exc:

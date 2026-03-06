@@ -17,8 +17,9 @@ class CreateGuideRequest(BaseModel):
     )
     persona: str = Field(
         ...,
-        description="Learning persona: beginner, academic, or practitioner",
-        pattern="^(beginner|academic|practitioner)$",
+        description="Learning persona: beginner or academic",
+        pattern="^(beginner|academic)$",
+        example="beginner",
     )
 
 

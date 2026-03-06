@@ -258,6 +258,7 @@ async def process_job(
             video_title=metadata.title if metadata else "Unknown",
             channel_name=metadata.channel_name if metadata else "Unknown",
             duration_seconds=metadata.duration_seconds if metadata else None,
+            chapters=transcript_data.get("chapters") if isinstance(transcript_data, dict) else None,
             model_name=guide_model,
         )
 

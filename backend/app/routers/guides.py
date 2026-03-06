@@ -124,8 +124,8 @@ async def list_guides(
     user: dict = Depends(get_current_user),
     page: int = Query(1, ge=1),
     per_page: int = Query(12, ge=1, le=50),
-    search: str | None = Query(None, max_length=200),
-    persona: str | None = Query(None, pattern="^(beginner|academic|practitioner)$"),
+    search: str | None = Query(None, description="Search term for title or channel"),
+    persona: str | None = Query(None, pattern="^(beginner|academic)$"),
 ):
     """List the current user's study guides with pagination."""
     user_id = user["sub"]

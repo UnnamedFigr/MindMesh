@@ -50,6 +50,7 @@ def _build_user_prompt(
     video_title: str = "",
     channel_name: str = "",
     duration_seconds: int | None = None,
+    chapters: list[dict] | None = None,
 ) -> str:
     """Assemble the full user prompt from templates."""
     persona_instructions = _get_persona_instructions(persona)
@@ -68,6 +69,7 @@ def _build_user_prompt(
         video_title=video_title or "Unknown",
         channel_name=channel_name or "Unknown",
         duration_display=duration_display,
+        chapters=chapters,
     )
 
 
@@ -80,6 +82,7 @@ async def generate_study_guide(
     video_title: str = "",
     channel_name: str = "",
     duration_seconds: int | None = None,
+    chapters: list[dict] | None = None,
     model_name: str | None = None,
 ) -> dict:
     """
@@ -105,7 +108,7 @@ async def generate_study_guide(
         raise ValidationError(
             f"Transcript too long: {token_count} tokens",
             code="VIDEO_TOO_LONG",
-            user_message="This video exceeds our processing limit (~4 hours). Try a shorter one.",
+            user_message="This video exceeds our processing limit. Try a shorter one.",
         )
 
     logger.info(
@@ -117,9 +120,12 @@ async def generate_study_guide(
         model=model_name,
     )
 
+    # Fallback to a cheaper model for long videos to avoid 429s on the main model
+    if strategy == "single_pass_fallback":
+        model_name = "gpt-4o-mini"
+        logger.info("generator.fallback_model", model=model_name, reason="high_token_count")
+
     # Truncate transcript if it would overflow the model's context window.
-    # Groq llama-3.3-70b-versatile has 128K context → keep ~90K for transcript.
-    # OpenAI GPT-4.1 has 1M context → keep ~200K (plenty for any video).
     is_openai_model = model_name.startswith("gpt-")
     max_transcript_tokens = 200_000 if is_openai_model else 90_000
     if token_count > max_transcript_tokens:
@@ -127,16 +133,11 @@ async def generate_study_guide(
         transcript_raw = truncate_to_tokens(transcript_raw, max_transcript_tokens)
         token_count = max_transcript_tokens
 
-    if strategy == "single_pass":
-        return await _single_pass(
-            transcript_raw, persona, tier, openai_client, settings,
-            video_title, channel_name, duration_seconds, model_name,
-        )
-    else:
-        return await _chunk_and_merge(
-            transcript_raw, persona, tier, openai_client, settings,
-            video_title, channel_name, duration_seconds, model_name,
-        )
+    # We enforce single pass for everything now to save cost.
+    return await _single_pass(
+        transcript_raw, persona, tier, openai_client, settings,
+        video_title, channel_name, duration_seconds, chapters, model_name,
+    )
 
 
 async def _single_pass(
@@ -148,12 +149,13 @@ async def _single_pass(
     video_title: str,
     channel_name: str,
     duration_seconds: int | None,
+    chapters: list[dict] | None,
     model_name: str | None = None,
 ) -> dict:
     """Single-pass generation for transcripts ≤100K tokens (95%+ of videos)."""
     system_prompt = _get_system_prompt()
     user_prompt = _build_user_prompt(
-        transcript, persona, tier, video_title, channel_name, duration_seconds,
+        transcript, persona, tier, video_title, channel_name, duration_seconds, chapters,
     )
 
     # Choose output schema based on tier
@@ -184,6 +186,7 @@ async def _chunk_and_merge(
     video_title: str,
     channel_name: str,
     duration_seconds: int | None,
+    chapters: list[dict] | None,
     model_name: str | None = None,
 ) -> dict:
     """
@@ -255,8 +258,8 @@ async def _chunk_and_merge(
 
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=8),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=2, min=5, max=60), # Wait longer on 429s up to 60s
     retry=retry_if_exception_type(Exception),
     reraise=True,
 )
@@ -272,13 +275,26 @@ async def _call_generation(
     """Call LLM with JSON mode and retry logic."""
     resolved_model = model_name or settings.guide_model
     try:
-        # Build JSON schema instruction from the Pydantic model
-        schema_json = json.dumps(output_model.model_json_schema(), indent=2)
+        # Build a simplified schema instruction for the LLM
+        # Use a human-readable field list instead of raw JSON Schema ($defs/$ref confuse some models)
+        field_descriptions = []
+        for name, field_info in output_model.model_fields.items():
+            desc = field_info.description or ""
+            field_descriptions.append(f'  - "{name}": {desc}')
+        fields_text = "\n".join(field_descriptions)
+
         schema_instruction = (
-            f"\n\nYou MUST respond with ONLY a valid JSON object that conforms to this schema:\n"
-            f"```json\n{schema_json}\n```\n"
+            f"\n\nYou MUST respond with ONLY a valid JSON object containing these top-level fields:\n"
+            f"{fields_text}\n\n"
+            f"Each theme in the 'themes' array must have: theme_number (int), title (str), "
+            f"time_range (str like 'MM:SS – MM:SS'), core_concept (str), mechanics (list of strings), "
+            f"analogy_or_example (str), subtopics (list of strings, optional), deep_dive (object with "
+            f"explanation, technical_detail, related_concept, optional).\n"
+            f"Each item in 'memory_questions' must have: question (str), answer (str).\n"
+            f"The 'tldr' must be a string: a concise summary scaled to the video's length and complexity.\n"
             f"Do NOT include any text before or after the JSON. Only valid JSON."
         )
+
 
         response = await asyncio.to_thread(
             openai_client.chat.completions.create,
@@ -373,43 +389,20 @@ def render_guide_markdown(content_json: dict, tier: str) -> str:
     We control the formatting ourselves rather than trusting GPT to format.
     """
     md_parts: list[str] = []
-    brief = content_json.get("quick_brief", {})
 
-    # ── Quick Brief ──────────────────────────────────────────
-    md_parts.append("# 📋 Quick Brief\n")
+    # ── TL;DR ────────────────────────────────────────────────
+    tldr = content_json.get("tldr", "")
+    if tldr:
+        md_parts.append("# 📋 TL;DR\n")
+        md_parts.append(f"{tldr}\n")
 
-    # Clickbait score
-    cb = brief.get("clickbait_score", {})
-    if cb:
-        score = cb.get("score", "?")
-        verdict = cb.get("verdict", "")
-        md_parts.append(f"**🎯 Clickbait Score:** {score}/10 — {verdict}\n")
-
-    # Time saved
-    time_saved = brief.get("time_saved_minutes", 0)
-    if time_saved:
-        md_parts.append(f"**⏱️ Time Saved:** ~{time_saved} minutes\n")
-
-    # Hook
-    hook = brief.get("hook", "")
-    if hook:
-        md_parts.append(f"**💡 In a Nutshell:** {hook}\n")
-
-    # Key takeaways
-    takeaways = brief.get("key_takeaways", [])
-    if takeaways:
-        md_parts.append("\n### Key Takeaways\n")
-        for t in takeaways:
-            md_parts.append(f"- {t}")
-        md_parts.append("")
-
-    # Highlight quote
-    quote = brief.get("highlight_quote", "")
-    quote_ts = brief.get("highlight_quote_timestamp", "")
-    if quote:
-        md_parts.append(f'\n> "{quote}"')
-        if quote_ts:
-            md_parts.append(f"> — *at {quote_ts}*\n")
+    # ── Memory Questions ─────────────────────────────────────
+    questions = content_json.get("memory_questions", [])
+    if questions:
+        md_parts.append("\n---\n\n# 🧠 Memory Check\n")
+        for i, q in enumerate(questions, 1):
+            md_parts.append(f"**Q{i}:** {q.get('question', '')}")
+            md_parts.append(f"  *A: {q.get('answer', '')}*\n")
 
     # ── Themes ───────────────────────────────────────────────
     themes = content_json.get("themes", [])

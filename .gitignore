@@ -1,5 +1,6 @@
 # Dependencies
 .claude/
+CLAUDE.md
 node_modules/
 backend/venv/
 __pycache__/

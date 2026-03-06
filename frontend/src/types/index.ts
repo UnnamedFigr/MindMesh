@@ -44,8 +44,23 @@ export interface StudyGuide {
 }
 
 export interface GuideJSON {
+  tldr?: string;
+  memory_questions?: MemoryQuestions[] | null;
   themes: ThemeBlock[];
+  quiz?: QuizQuestion[];
   reflection_question?: string;
+}
+
+export interface MemoryQuestions {
+  question: string;
+  answer: string;
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
 }
 
 export interface ThemeBlock {
@@ -124,12 +139,6 @@ export const PERSONA_OPTIONS: PersonaOption[] = [
     name: "Academic",
     emoji: "🎓",
     description: "Technical depth, mechanisms, frameworks",
-  },
-  {
-    id: "practitioner",
-    name: "Practitioner",
-    emoji: "⚡",
-    description: "Comprehensive depth, actionable steps",
   },
 ];
 

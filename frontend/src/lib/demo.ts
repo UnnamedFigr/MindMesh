@@ -492,10 +492,9 @@ export function demoCreateGuide(url: string, persona: Persona): JobCreatedRespon
   const jobId = `demo-job-${Date.now()}`;
 
   // Create a dynamic guide from the pasted URL
-  const personaLabels: Record<Persona, string> = {
+  const personaLabels: Record<string, string> = {
     beginner: "Beginner-Friendly",
     academic: "Academic Deep-Dive",
-    practitioner: "Practitioner",
   };
 
   const newGuide: StudyGuide = {
@@ -508,18 +507,18 @@ export function demoCreateGuide(url: string, persona: Persona): JobCreatedRespon
     persona,
     tier: "free",
     guide_json: {
-      quick_brief: {
-        hook: `A ${personaLabels[persona].toLowerCase()} study guide generated from your YouTube video.`,
-        key_takeaways: [
-          "This is a demo guide — paste any YouTube URL to see the flow in action",
-          "In production, MindMesh uses AI to extract real insights from the video",
-          "Choose a persona (beginner / academic / practitioner) to tailor the output",
-        ],
-        clickbait_score: { score: 1, verdict: "Accurate" },
-        time_saved_minutes: 10,
-        highlight_quote: "Switch to Dev mode to generate real AI-powered study guides!",
-        highlight_quote_timestamp: "0:00",
-      },
+      // quick_brief: {
+      //   hook: `A ${personaLabels[persona].toLowerCase()} study guide generated from your YouTube video.`,
+      //   key_takeaways: [
+      //     "This is a demo guide — paste any YouTube URL to see the flow in action",
+      //     "In production, MindMesh uses AI to extract real insights from the video",
+      //     "Choose a persona (beginner / academic / practitioner) to tailor the output",
+      //   ],
+      //   clickbait_score: { score: 1, verdict: "Accurate" },
+      //   time_saved_minutes: 10,
+      //   highlight_quote: "Switch to Dev mode to generate real AI-powered study guides!",
+      //   highlight_quote_timestamp: "0:00",
+      // },
       themes: [
         {
           theme_number: 1,
