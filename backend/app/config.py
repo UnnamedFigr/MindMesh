@@ -44,9 +44,9 @@ class Settings(BaseSettings):
 
     # ── Model Config ──────────────────────────────────────────
     triage_model: str = "llama-3.1-8b-instant"
-    guide_model: str = "llama-3.3-70b-versatile"       # Groq — short videos
-    guide_model_long: str = "gpt-4.1"                   # OpenAI — long videos (30 min+)
-    long_video_token_threshold: int = 15_000             # ~30 min of speech with timestamps
+    guide_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"       # Groq — short videos
+    guide_model_long: str = "gpt-4.1"                                       # OpenAI — long videos (30 min+)
+    long_video_token_threshold: int = 13000                                # ~30 min of speech with timestamps
     quiz_model: str = "llama-3.1-8b-instant"
     embedding_model: str = "text-embedding-3-small"
     whisper_model: str = "whisper-large-v3-turbo"

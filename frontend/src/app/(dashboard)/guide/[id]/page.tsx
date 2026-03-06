@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getGuide, deleteGuide } from "@/lib/api";
-// import GuideRenderer from "@/components/guide/GuideRenderer";
 import ReflectionSection from "@/components/guide/ReflectionSection";
+import RefreshableQuestions from "@/components/guide/RefreshableQuestions";
 import ThemeBlock from "@/components/guide/ThemeBlock";
-import TenSecondTakeaway from "@/components/guide/TenSecondTakeaway";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
@@ -190,10 +189,20 @@ export default function GuideViewerPage() {
         </div>
       </div>
 
-      {/* 10-Second Takeaway
-      {guide.guide_json?.quick_brief && (
-        <TenSecondTakeaway brief={guide.guide_json.quick_brief} />
-      )} */}
+      {/* TL;DR Section */}
+      {guide.guide_json?.tldr && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              📋 TL;DR
+            </h2>
+          </div>
+          <div className="px-6 py-4">
+            <p className="text-sm text-gray-700 leading-relaxed">{guide.guide_json.tldr}</p>
+          </div>
+        </div>
+      )}
+
       {/* Theme Blocks */}
       {guide.guide_json?.themes && guide.guide_json.themes.length > 0 && (
         <div className="mb-6">
@@ -210,7 +219,11 @@ export default function GuideViewerPage() {
           </div>
         </div>
       )}
-      {/* <RefreshableQuesions /> */}
+
+      {/* Memory Questions */}
+      {guide.guide_json?.memory_questions && guide.guide_json.memory_questions.length > 0 && (
+        <RefreshableQuestions questions={guide.guide_json.memory_questions} />
+      )}
       {/* Reflection & Notes Section */}
       <div className="mb-6">
         <ReflectionSection
