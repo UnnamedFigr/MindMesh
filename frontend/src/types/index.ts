@@ -44,17 +44,7 @@ export interface StudyGuide {
 }
 
 export interface GuideJSON {
-  // quick_brief?: {
-  //   hook: string;
-  //   key_takeaways: string[];
-  //   clickbait_score?: {
-  //     score: number;
-  //     verdict: string;
-  //   };
-  //   time_saved_minutes?: number;
-  //   highlight_quote?: string;
-  //   highlight_quote_timestamp?: string;
-  // };
+  tldr?: string;
   memory_questions?: MemoryQuestions[] | null;
   themes: ThemeBlock[];
   quiz?: QuizQuestion[];

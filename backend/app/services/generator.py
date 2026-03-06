@@ -275,13 +275,26 @@ async def _call_generation(
     """Call LLM with JSON mode and retry logic."""
     resolved_model = model_name or settings.guide_model
     try:
-        # Build JSON schema instruction from the Pydantic model
-        schema_json = json.dumps(output_model.model_json_schema(), indent=2)
+        # Build a simplified schema instruction for the LLM
+        # Use a human-readable field list instead of raw JSON Schema ($defs/$ref confuse some models)
+        field_descriptions = []
+        for name, field_info in output_model.model_fields.items():
+            desc = field_info.description or ""
+            field_descriptions.append(f'  - "{name}": {desc}')
+        fields_text = "\n".join(field_descriptions)
+
         schema_instruction = (
-            f"\n\nYou MUST respond with ONLY a valid JSON object that conforms to this schema:\n"
-            f"```json\n{schema_json}\n```\n"
+            f"\n\nYou MUST respond with ONLY a valid JSON object containing these top-level fields:\n"
+            f"{fields_text}\n\n"
+            f"Each theme in the 'themes' array must have: theme_number (int), title (str), "
+            f"time_range (str like 'MM:SS – MM:SS'), core_concept (str), mechanics (list of strings), "
+            f"analogy_or_example (str), subtopics (list of strings, optional), deep_dive (object with "
+            f"explanation, technical_detail, related_concept, optional).\n"
+            f"Each item in 'memory_questions' must have: question (str), answer (str).\n"
+            f"The 'tldr' must be a string: a concise summary scaled to the video's length and complexity.\n"
             f"Do NOT include any text before or after the JSON. Only valid JSON."
         )
+
 
         response = await asyncio.to_thread(
             openai_client.chat.completions.create,
@@ -376,43 +389,20 @@ def render_guide_markdown(content_json: dict, tier: str) -> str:
     We control the formatting ourselves rather than trusting GPT to format.
     """
     md_parts: list[str] = []
-    brief = content_json.get("quick_brief", {})
 
-    # ── Quick Brief ──────────────────────────────────────────
-    md_parts.append("# 📋 Quick Brief\n")
+    # ── TL;DR ────────────────────────────────────────────────
+    tldr = content_json.get("tldr", "")
+    if tldr:
+        md_parts.append("# 📋 TL;DR\n")
+        md_parts.append(f"{tldr}\n")
 
-    # Clickbait score
-    cb = brief.get("clickbait_score", {})
-    if cb:
-        score = cb.get("score", "?")
-        verdict = cb.get("verdict", "")
-        md_parts.append(f"**🎯 Clickbait Score:** {score}/10 — {verdict}\n")
-
-    # Time saved
-    time_saved = brief.get("time_saved_minutes", 0)
-    if time_saved:
-        md_parts.append(f"**⏱️ Time Saved:** ~{time_saved} minutes\n")
-
-    # Hook
-    hook = brief.get("hook", "")
-    if hook:
-        md_parts.append(f"**💡 In a Nutshell:** {hook}\n")
-
-    # Key takeaways
-    takeaways = brief.get("key_takeaways", [])
-    if takeaways:
-        md_parts.append("\n### Key Takeaways\n")
-        for t in takeaways:
-            md_parts.append(f"- {t}")
-        md_parts.append("")
-
-    # Highlight quote
-    quote = brief.get("highlight_quote", "")
-    quote_ts = brief.get("highlight_quote_timestamp", "")
-    if quote:
-        md_parts.append(f'\n> "{quote}"')
-        if quote_ts:
-            md_parts.append(f"> — *at {quote_ts}*\n")
+    # ── Memory Questions ─────────────────────────────────────
+    questions = content_json.get("memory_questions", [])
+    if questions:
+        md_parts.append("\n---\n\n# 🧠 Memory Check\n")
+        for i, q in enumerate(questions, 1):
+            md_parts.append(f"**Q{i}:** {q.get('question', '')}")
+            md_parts.append(f"  *A: {q.get('answer', '')}*\n")
 
     # ── Themes ───────────────────────────────────────────────
     themes = content_json.get("themes", [])
