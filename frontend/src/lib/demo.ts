@@ -492,10 +492,9 @@ export function demoCreateGuide(url: string, persona: Persona): JobCreatedRespon
   const jobId = `demo-job-${Date.now()}`;
 
   // Create a dynamic guide from the pasted URL
-  const personaLabels: Record<Persona, string> = {
+  const personaLabels: Record<string, string> = {
     beginner: "Beginner-Friendly",
     academic: "Academic Deep-Dive",
-    practitioner: "Practitioner",
   };
 
   const newGuide: StudyGuide = {
