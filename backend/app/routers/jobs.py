@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 import structlog
 
+from app.db import get_supabase
 from app.dependencies import get_current_user
 from app.models.responses import ErrorResponse, JobStatusResponse
 
@@ -31,7 +32,7 @@ async def get_job_status(job_id: str, user: dict = Depends(get_current_user)):
     Frontend polls this endpoint every 2-3 seconds during generation.
     """
     user_id = user["sub"]
-    supabase = _get_supabase()
+    supabase = get_supabase()
 
     response = (
         supabase.table("processing_jobs")
@@ -62,15 +63,3 @@ async def get_job_status(job_id: str, user: dict = Depends(get_current_user)):
     )
 
 
-def _get_supabase():
-    """Get Supabase client. Uses in-memory dev store in dev mode."""
-    from app.services.dev_store import is_dev_mode, get_dev_client
-
-    if is_dev_mode():
-        return get_dev_client()
-
-    from supabase import create_client
-    from app.config import get_settings
-
-    settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_key)

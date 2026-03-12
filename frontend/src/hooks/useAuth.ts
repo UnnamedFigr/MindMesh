@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isDemoMode, isDevMode, disableDemoMode, DEMO_USER, DEV_USER } from "@/lib/demo";
@@ -14,7 +14,9 @@ export function useAuth() {
   const [dev, setDev] = useState(false);
   const router = useRouter();
 
-  const supabase = createClient();
+  // Stable client reference — createClient() is cheap but re-creating it on
+  // every render would register duplicate onAuthStateChange listeners.
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     // Check dev mode first (uses real backend)

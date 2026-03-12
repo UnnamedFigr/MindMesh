@@ -170,7 +170,9 @@ def create_app() -> FastAPI:
     @app.get("/api/credits", tags=["credits"])
     async def get_credits(user: dict = Depends(get_current_user)):
         """Get current user's credit status."""
-        from app.services.dev_store import is_dev_mode, get_dev_client
+        from app.db import get_supabase
+        from app.services.credits import check_credits
+        from app.services.dev_store import is_dev_mode
 
         if is_dev_mode():
             return {
@@ -180,17 +182,12 @@ def create_app() -> FastAPI:
                 "tier": "pro",
             }
 
-        from supabase import create_client
-        from app.services.credits import check_credits
-
         user_id = user["sub"]
-        supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
         try:
-            credit_info = await check_credits(user_id, 0, supabase)
+            credit_info = await check_credits(user_id, 0, get_supabase())
             return credit_info
         except Exception:
-            # If credits check fails (e.g., new user), return defaults
+            # If credits check fails (e.g., new user without profile yet), return defaults
             return {
                 "credits_used": 0,
                 "daily_credit_limit": 3,

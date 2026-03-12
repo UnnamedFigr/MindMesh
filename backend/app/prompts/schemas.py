@@ -7,7 +7,7 @@ OpenAI's Structured Outputs mode guarantees valid JSON matching these schemas.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Triage Output ─────────────────────────────────────────────────────
@@ -116,6 +116,17 @@ class StudyGuideCore(BaseModel):
         min_length=2,
         description="Thematic breakdown (2+ themes based on content length).",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_empty_mechanic_themes(cls, data: dict) -> dict:
+        """Remove themes where the LLM returned an empty mechanics list."""
+        if isinstance(data, dict) and "themes" in data:
+            data["themes"] = [
+                t for t in data["themes"]
+                if not isinstance(t, dict) or t.get("mechanics")
+            ]
+        return data
 
 
 # ── Pro Tier Extensions ──────────────────────────────────────────────
