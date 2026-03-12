@@ -14,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 import structlog
 
+from app.db import get_supabase
 from app.dependencies import check_rate_limit, get_current_user, mark_job_finished, mark_job_started
 from app.models.requests import CreateGuideRequest
 from app.models.responses import (
@@ -71,9 +72,11 @@ async def create_guide(
             detail={"code": "INVALID_URL", "message": "Invalid YouTube URL."},
         )
 
+    supabase = get_supabase()
+
     # Check for existing guide (no duplicate creation)
     existing_id = await check_existing_guide(
-        video_id, request.persona, user_id, _get_supabase()
+        video_id, request.persona, user_id, supabase
     )
     if existing_id:
         raise HTTPException(
@@ -87,10 +90,10 @@ async def create_guide(
 
     # Check credits
     credit_cost = get_credit_cost()
-    await check_credits(user_id, credit_cost, _get_supabase())
+    await check_credits(user_id, credit_cost, supabase)
 
     # Create job
-    job_id = await create_job(user_id, request.youtube_url, request.persona, _get_supabase())
+    job_id = await create_job(user_id, request.youtube_url, request.persona, supabase)
 
     # Mark rate limit
     mark_job_started(user_id)
@@ -129,7 +132,7 @@ async def list_guides(
 ):
     """List the current user's study guides with pagination."""
     user_id = user["sub"]
-    supabase = _get_supabase()
+    supabase = get_supabase()
 
     query = (
         supabase.table("study_guides")
@@ -180,7 +183,7 @@ async def list_guides(
 async def get_guide(guide_id: str, user: dict = Depends(get_current_user)):
     """Get a specific study guide by ID."""
     user_id = user["sub"]
-    supabase = _get_supabase()
+    supabase = get_supabase()
 
     response = (
         supabase.table("study_guides")
@@ -218,7 +221,7 @@ async def get_guide(guide_id: str, user: dict = Depends(get_current_user)):
 async def delete_guide(guide_id: str, user: dict = Depends(get_current_user)):
     """Delete a study guide."""
     user_id = user["sub"]
-    supabase = _get_supabase()
+    supabase = get_supabase()
 
     # Verify ownership
     existing = (
@@ -242,22 +245,6 @@ async def delete_guide(guide_id: str, user: dict = Depends(get_current_user)):
         pass  # Non-fatal
 
 
-# ── Helpers ────────────────────────────────────────────────────
-
-def _get_supabase():
-    """Get Supabase client (service role for backend ops). Uses in-memory dev store in dev mode."""
-    from app.services.dev_store import is_dev_mode, get_dev_client
-
-    if is_dev_mode():
-        return get_dev_client()
-
-    from supabase import create_client
-    from app.config import get_settings
-
-    settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_key)
-
-
 async def _run_job(job_id: str, user_id: str, youtube_url: str, video_id: str, persona: str):
     """Wrapper to run job and clean up rate limit state."""
     try:
@@ -267,7 +254,7 @@ async def _run_job(job_id: str, user_id: str, youtube_url: str, video_id: str, p
             youtube_url=youtube_url,
             video_id=video_id,
             persona=persona,
-            supabase_client=_get_supabase(),
+            supabase_client=get_supabase(),
         )
     finally:
         mark_job_finished(user_id)

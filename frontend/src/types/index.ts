@@ -43,8 +43,21 @@ export interface StudyGuide {
   created_at: string;
 }
 
+export interface QuickBrief {
+  hook: string;
+  key_takeaways?: string[];
+  clickbait_score?: {
+    score: number;
+    verdict: string;
+  };
+  time_saved_minutes?: number;
+  highlight_quote?: string;
+  highlight_quote_timestamp?: string;
+}
+
 export interface GuideJSON {
   tldr?: string;
+  quick_brief?: QuickBrief;
   memory_questions?: MemoryQuestions[] | null;
   themes: ThemeBlock[];
   quiz?: QuizQuestion[];

@@ -1,6 +1,7 @@
 # MindMesh
 
-**YouTube → AI Study Guide Generator**
+**YouTube → AI Study Guide Generator**  
+*(Current Status: Phase 1 & 2 Complete. Core MVP fully operational. Entering Phase 3: Pro Features.)*
 
 MindMesh converts any YouTube video into a personalized, structured study guide in seconds. Choose your learning persona (Beginner, Academic, or Practitioner), and our AI pipeline builds a guide tailored to your level.
 

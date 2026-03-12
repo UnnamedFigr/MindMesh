@@ -69,6 +69,22 @@ export default function GuideViewerPage() {
     }
   };
 
+  const handleTimestampClick = (timeStr: string) => {
+    if (!guide?.youtube_id) return;
+    
+    // Convert "MM:SS" or "HH:MM:SS" to seconds for YouTube URL parameter
+    const parts = timeStr.split(':').map(Number);
+    let seconds = 0;
+    if (parts.length === 2) {
+      seconds = parts[0] * 60 + parts[1];
+    } else if (parts.length === 3) {
+      seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+
+    const url = `https://youtube.com/watch?v=${guide.youtube_id}&t=${seconds}s`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
@@ -214,7 +230,13 @@ export default function GuideViewerPage() {
           </h2>
           <div className="space-y-2">
             {guide.guide_json.themes.map((theme, i) => (
-              <ThemeBlock key={i} theme={theme} index={i} defaultOpen={i === 0} />
+              <ThemeBlock 
+                key={i} 
+                theme={theme} 
+                index={i} 
+                defaultOpen={i === 0} 
+                onTimestampClick={handleTimestampClick}
+              />
             ))}
           </div>
         </div>

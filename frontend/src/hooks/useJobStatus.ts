@@ -23,8 +23,10 @@ export function useJobStatus(
   const onErrorRef = useRef(onError);
 
   // Keep refs current
-  onCompleteRef.current = onComplete;
-  onErrorRef.current = onError;
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  }, [onComplete, onError]);
 
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {

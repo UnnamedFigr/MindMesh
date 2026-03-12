@@ -26,6 +26,9 @@ mindmesh_backend.egg-info/
 *.swp
 *.swo
 
+# AI Agent Config (keep copilot-instructions tracked)
+# .github/copilot-instructions.md and .github/instructions/ are committed
+
 # OS
 .DS_Store
 Thumbs.db
@@ -44,5 +47,5 @@ htmlcov/
 *.bak
 *.tmp
 
-copilot-instructions.md
 IMPLEMENTATION_PLAN.md
+project-documentation/
