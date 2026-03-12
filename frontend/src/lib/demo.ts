@@ -627,6 +627,7 @@ export function demoGetJobStatus(jobId: string): Job {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function demoDeleteGuide(_guideId: string): void {
   // no-op in demo
 }

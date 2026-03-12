@@ -9,12 +9,14 @@ interface ThemeBlockProps {
   theme: ThemeBlockType;
   index: number;
   defaultOpen?: boolean;
+  onTimestampClick?: (timeStr: string) => void;
 }
 
 export default function ThemeBlock({
   theme,
   index,
   defaultOpen = false,
+  onTimestampClick,
 }: ThemeBlockProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [subtopicsOpen, setSubtopicsOpen] = useState(false);
@@ -39,9 +41,17 @@ export default function ThemeBlock({
       )}
     >
       {/* Header — always visible, clickable */}
-      <button
+      <div
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left"
+        className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          }
+        }}
       >
         <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold", color.dot)}>
           {theme.theme_number ?? index + 1}
@@ -57,10 +67,25 @@ export default function ThemeBlock({
           )}
         </div>
         {theme.time_range && (
-          <span className="text-xs text-gray-400 font-mono flex items-center gap-1 flex-shrink-0 mr-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent toggling the accordion
+              if (onTimestampClick) {
+                // time_range is like "05:22 - 08:15". Pass the start time.
+                const startMatch = theme.time_range.match(/^(\d{1,2}:\d{2}(?::\d{2})?)/);
+                if (startMatch) {
+                  onTimestampClick(startMatch[1]);
+                }
+              }
+            }}
+            className={cn(
+              "text-xs font-mono flex items-center gap-1 flex-shrink-0 mr-2 transition-colors",
+              onTimestampClick ? "text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-1.5 py-0.5 rounded" : "text-gray-400"
+            )}
+          >
             <Clock className="w-3 h-3" />
             {theme.time_range}
-          </span>
+          </button>
         )}
         <ChevronDown
           className={cn(
@@ -68,7 +93,7 @@ export default function ThemeBlock({
             isOpen && "rotate-180"
           )}
         />
-      </button>
+      </div>
 
       {/* Content — collapsible */}
       <div
