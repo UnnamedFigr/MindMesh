@@ -147,8 +147,8 @@ async def _handle_subscription_deleted(data: dict) -> None:
     user_id = response.data["id"]
 
     supabase.table("profiles").update({
-        "tier": "free",
-        "daily_credit_limit": 3,  # Free tier: 3 credits/day
+        "tier": "core",
+        "daily_credit_limit": 3,  # Core tier: 3 credits/day
         "stripe_subscription_id": None,
     }).eq("id", user_id).execute()
 
