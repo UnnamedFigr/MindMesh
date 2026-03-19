@@ -21,3 +21,25 @@ applyTo: "backend/tests/**"
 - Backend changes → run `pytest -v`
 - Frontend changes → run `pnpm build` and `pnpm lint`
 - Both → run the relevant commands for each side
+
+## Mocking Supabase (`get_db` singleton)
+```python
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+from app.dependencies import get_db
+
+@pytest.fixture
+def mock_db():
+    db = MagicMock()
+    db.table.return_value.insert.return_value.execute = AsyncMock(return_value=MagicMock(data=[{"id": "test-id"}]))
+    return db
+
+# In test:
+app.dependency_overrides[get_db] = lambda: mock_db
+```
+
+## Mocking Worker Dependencies
+- Mock `generate_study_guide` to return a fixed `StudyGuideCore` dict
+- Mock `fetch_transcript` with `AsyncMock(return_value=("transcript text", []))`
+- Mock `triage_content` with a fixed `TriageResult` dict
+- Never let worker tests hit real APIs or Supabase

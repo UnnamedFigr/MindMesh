@@ -1,0 +1,17 @@
+# ── Gemini uploaded file cache (do not commit) ─────────────────
+cache/
+
+# ── Runtime outputs (commit when you want to version findings) ──
+# outputs/     ← uncomment to exclude from git
+
+# ── Your research sources (often large PDFs, keep out of git) ───
+sources/
+
+# ── Secrets (never commit) ──────────────────────────────────────
+.env
+
+# ── Python ──────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+venv/

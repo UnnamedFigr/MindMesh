@@ -18,7 +18,7 @@ applyTo: "frontend/src/**/*.{ts,tsx}"
 
 ## TypeScript
 - Types in `types/index.ts` — keep in sync with backend Pydantic schemas
-- `Persona = "beginner" | "academic" | "practitioner"`
+- `Persona = "beginner" | "academic" `
 - `Tier = "free" | "core" | "pro"`
 - `JobStatus = "pending" | "processing" | "completed" | "failed"`
 - Never use `any` — prefer `unknown` and narrow with type guards
@@ -43,3 +43,30 @@ applyTo: "frontend/src/**/*.{ts,tsx}"
 ## Package Manager
 - **pnpm only** — npm causes TAR_ENTRY_ERROR on Windows
 - `pnpm install`, `pnpm dev`, `pnpm build`, `pnpm lint`
+
+## Phase 3 Pro UI Patterns
+
+### Pro Tier Gating
+```tsx
+// In any Pro-only section:
+if (tier !== 'pro') {
+  return <UpgradeCTA feature="quiz" />;  // or inline upgrade prompt
+}
+```
+
+### Guide Page Rendering Contract (`app/(dashboard)/guide/[id]/page.tsx`)
+- `guideData.guide_json` is the raw `StudyGuideCore | StudyGuidePro` object
+- `guideData.tier` determines which sections to render
+- Add new sections by appending after the existing `<ReflectionCard>` block
+- Quiz: `guideData.guide_json?.quiz` → pass to `<QuizCard questions={...} />`
+- Associations: fetched separately via `getAssociations(id)` from `lib/api.ts`
+
+### Adding New API Client Functions (`lib/api.ts`)
+- Pattern: `export async function getFoo(id: string): Promise<FooResponse>`
+- Always use `apiFetch<T>(path, options)` — handles auth, dev/demo modes
+- Types for responses must be defined in `types/index.ts` first
+
+### Component Locations
+- `components/guide/` — guide page-specific components (QuizCard, AssociationsList…)
+- `components/ui/` — reusable primitives (Button, Card, Badge…)
+- `components/forms/` — form components (GuideForm, SearchBar…)
