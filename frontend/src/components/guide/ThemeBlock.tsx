@@ -53,7 +53,7 @@ export default function ThemeBlock({
           }
         }}
       >
-        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold", color.dot)}>
+        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold", color.dot)}>
           {theme.theme_number ?? index + 1}
         </div>
         <div className="flex-1 min-w-0">
@@ -79,8 +79,8 @@ export default function ThemeBlock({
               }
             }}
             className={cn(
-              "text-xs font-mono flex items-center gap-1 flex-shrink-0 mr-2 transition-colors",
-              onTimestampClick ? "text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-1.5 py-0.5 rounded" : "text-gray-400"
+              "text-xs font-mono flex items-center gap-1 flex-shrink-0 mr-2 transition-colors min-h-[44px] min-w-[44px] justify-center",
+              onTimestampClick ? "text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-3 py-1.5 rounded-lg" : "text-gray-400"
             )}
           >
             <Clock className="w-3 h-3" />

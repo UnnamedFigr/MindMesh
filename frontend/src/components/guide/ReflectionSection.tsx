@@ -127,7 +127,7 @@ export default function ReflectionSection({
               <button
                 key={i}
                 onClick={() => handlePromptClick(prompt, i)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-200 ${activePrompt === i
+                className={`text-xs px-4 py-2.5 rounded-full border transition-all duration-200 ${activePrompt === i
                   ? "bg-amber-100 border-amber-300 text-amber-800"
                   : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700"
                   }`}
@@ -158,7 +158,7 @@ export default function ReflectionSection({
                 <div key={note.id} className="p-4 relative group bg-amber-50 rounded-xl border border-amber-100 text-sm text-gray-800 whitespace-pre-wrap">
                   <button
                     onClick={() => handleDeleteNote(note.id)}
-                    className="absolute top-3 right-3 p-1 text-amber-600/40 hover:text-red-500 hover:bg-white rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    className="absolute top-3 right-3 p-2 text-amber-600/40 hover:text-red-500 hover:bg-white rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200"
                     aria-label="Delete note"
                   >
                     <X className="w-5 h-5" />
