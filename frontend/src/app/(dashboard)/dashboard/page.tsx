@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGuide } from "@/lib/api";
@@ -155,9 +156,12 @@ export default function DashboardPage() {
           {/* Video thumbnail preview */}
           {videoId && (
             <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 border border-gray-100 animate-in fade-in duration-200">
-              <img
+              <Image
                 src={getYouTubeThumbnail(videoId)}
                 alt="Video thumbnail"
+                width={96}
+                height={64}
+                sizes="96px"
                 className="w-24 h-16 object-cover rounded-lg flex-shrink-0"
               />
               <div className="min-w-0">

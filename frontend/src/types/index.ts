@@ -164,5 +164,39 @@ export const STEP_LABELS: Record<string, string> = {
   analyzing_content: "Analyzing content...",
   generating_guide: "Building your study guide...",
   saving_results: "Saving results...",
+  enhancing_pro: "Enhancing Pro features...",
   done: "Complete!",
 };
+
+// ── Association Types (Pro: Web of Associations) ───────────────
+export interface AssociationItem {
+  guide_id: string;
+  title: string;
+  channel_name: string;
+  thumbnail_url: string | null;
+  similarity_score: number;
+  created_at: string;
+}
+
+export interface AssociationListResponse {
+  guide_id: string;
+  associations: AssociationItem[];
+}
+
+// ── Reflection Types (Pro: persisted reflections) ─────────────
+export interface Reflection {
+  id: string;
+  user_id: string;
+  study_guide_id: string;
+  content: string;
+  created_at: string;
+}
+
+// ── Billing Types ──────────────────────────────────────────────
+export interface CheckoutSessionResponse {
+  checkout_url: string;
+}
+
+export interface PortalSessionResponse {
+  portal_url: string;
+}

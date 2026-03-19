@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   Brain,
-  Sparkles,
   BookOpen,
   Zap,
   Shield,

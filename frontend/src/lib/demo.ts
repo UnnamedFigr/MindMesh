@@ -495,6 +495,7 @@ export function demoCreateGuide(url: string, persona: Persona): JobCreatedRespon
   const personaLabels: Record<string, string> = {
     beginner: "Beginner-Friendly",
     academic: "Academic Deep-Dive",
+    practitioner: "Practitioner-Ready",
   };
 
   const newGuide: StudyGuide = {
