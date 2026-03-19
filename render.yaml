@@ -1,0 +1,34 @@
+# Render Blueprint — Backend API
+# Deploy: Connect repo → Render auto-detects this file
+# Docs: https://docs.render.com/blueprint-spec
+
+services:
+  - type: web
+    name: mindmesh-api
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    region: frankfurt  # EU — closest to target users
+    plan: free         # Upgrade to starter ($7/mo) for always-on
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SUPABASE_URL
+        sync: false  # Set manually in Render dashboard
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false  # Set to your Vercel domain
+      - key: YOUTUBE_API_KEY
+        sync: false
