@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getGuides, deleteGuide } from "@/lib/api";
@@ -65,8 +66,8 @@ export default function LibraryPage() {
       );
       setGuides(data.guides);
       setTotalCount(data.total);
-    } catch {
-      // Silently fail — user sees empty state
+    } catch (err) {
+      console.error("Failed to fetch guides:", err);
     } finally {
       setLoading(false);
     }
@@ -170,9 +171,12 @@ export default function LibraryPage() {
               >
                 {/* Thumbnail */}
                 <div className="relative">
-                  <img
+                  <Image
                     src={getYouTubeThumbnail(guide.video_id)}
                     alt={guide.title}
+                    width={640}
+                    height={256}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="w-full h-32 object-cover"
                   />
                   <span className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded-md px-1.5 py-0.5 text-[10px] font-medium text-gray-700">

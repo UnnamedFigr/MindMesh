@@ -12,7 +12,7 @@ export default function DemoEntryPage() {
 
   useEffect(() => {
     enableDemoMode();
-    router.replace("/dashboard");
+    router.replace("/guide/demo-guide-001");
   }, [router]);
 
   return (

@@ -5,8 +5,6 @@ import { Zap, CheckCircle2, Quote, Clock, BarChart3 } from "lucide-react";
 
 type QuickBriefType = NonNullable<GuideJSON["quick_brief"]>;
 
-type Persona = "beginner" | "academic";
-
 interface TenSecondTakeawayProps {
   brief: QuickBriefType;
 }

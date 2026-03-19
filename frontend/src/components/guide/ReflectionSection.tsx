@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Button from "@/components/ui/Button";
 import { PenLine, Save, CheckCircle2, Lightbulb, X } from "lucide-react";
+import { getReflection, saveReflection } from "@/lib/api";
 
 interface ReflectionSectionProps {
   guideId: string;
@@ -19,27 +20,41 @@ export default function ReflectionSection({
   guideId,
   prompts,
 }: ReflectionSectionProps) {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<Note[]>(() => {
+    if (typeof window === "undefined") return [];
+    const stored = localStorage.getItem(`reflection-${guideId}`);
+    if (!stored) return [];
+    try {
+      const parsedNotes = JSON.parse(stored);
+      if (Array.isArray(parsedNotes)) return parsedNotes;
+      return [{ id: "legacy-note", text: parsedNotes, timestamp: Date.now() }];
+    } catch {
+      return [{ id: "legacy-note", text: stored, timestamp: Date.now() }];
+    }
+  });
   const [text, setText] = useState("");
   const [saved, setSaved] = useState(false);
   const [activePrompt, setActivePrompt] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load saved reflection from localStorage
+  // Sync from backend (non-blocking, best-effort)
   useEffect(() => {
-    const stored = localStorage.getItem(`reflection-${guideId}`);
-    if (stored) {
-      try {
-        const parsedNotes = JSON.parse(stored);
-        if (Array.isArray(parsedNotes)) {
-          setNotes(parsedNotes);
-        } else {
-          setNotes([{ id: 'legacy-note', text: parsedNotes, timestamp: Date.now() }])
-        }
-      } catch (error) {
-        setNotes([{ id: "legacy-note", text: stored, timestamp: Date.now() }]);
-      }
-    }
+    getReflection(guideId)
+      .then((backendReflection) => {
+        if (!backendReflection?.content) return;
+        setNotes((prev) => {
+          // Only prepend if no local notes exist yet (avoid duplicating on revisit)
+          if (prev.length === 0) {
+            return [{
+              id: `backend-${backendReflection.id}`,
+              text: backendReflection.content,
+              timestamp: new Date(backendReflection.created_at).getTime(),
+            }];
+          }
+          return prev;
+        });
+      })
+      .catch(() => { /* ignore backend errors — localStorage is the source of truth */ });
   }, [guideId]);
 
   const handleSave = () => {
@@ -56,6 +71,9 @@ export default function ReflectionSection({
     setText("");
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+
+    // Persist to backend (non-blocking, best-effort — localStorage is the source of truth)
+    saveReflection(guideId, newNote.text).catch(() => { /* ignore */ });
   };
   const handleDeleteNote = (idToRemove: string) => {
     const updatedNotes = notes.filter((note) => note.id !== idToRemove);

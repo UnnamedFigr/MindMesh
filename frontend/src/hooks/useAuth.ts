@@ -1,17 +1,30 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isDemoMode, isDevMode, disableDemoMode, DEMO_USER, DEV_USER } from "@/lib/demo";
+import { getBillingStatus } from "@/lib/api";
 import type { User, Session } from "@supabase/supabase-js";
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
+  const bootMode = useMemo(() => {
+    const dev = typeof window !== "undefined" && isDevMode();
+    const demo = typeof window !== "undefined" && !dev && isDemoMode();
+    const bootUser = dev
+      ? (DEV_USER as unknown as User)
+      : demo
+        ? (DEMO_USER as unknown as User)
+        : null;
+
+    return { dev, demo, bootUser };
+  }, []);
+
+  const [user, setUser] = useState<User | null>(bootMode.bootUser);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [demo, setDemo] = useState(false);
-  const [dev, setDev] = useState(false);
+  const [loading, setLoading] = useState(!bootMode.dev && !bootMode.demo);
+  const demo = bootMode.demo;
+  const dev = bootMode.dev;
   const router = useRouter();
 
   // Stable client reference — createClient() is cheap but re-creating it on
@@ -19,21 +32,8 @@ export function useAuth() {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // Check dev mode first (uses real backend)
-    if (isDevMode()) {
-      setUser(DEV_USER as unknown as User);
-      setDev(true);
-      setLoading(false);
-      return;
-    }
-
-    // Check demo mode (mock data)
-    if (isDemoMode()) {
-      setUser(DEMO_USER as unknown as User);
-      setDemo(true);
-      setLoading(false);
-      return;
-    }
+    // Skip Supabase auth in dev/demo mode
+    if (bootMode.dev || bootMode.demo) return;
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -49,10 +49,17 @@ export function useAuth() {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Reconcile Stripe billing tier on sign-in (fire-and-forget)
+      if (_event === "SIGNED_IN") {
+        getBillingStatus().catch(() => {
+          /* best-effort: ignore failures in dev/offline */
+        });
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [bootMode.demo, bootMode.dev, supabase]);
 
   const signOut = useCallback(async () => {
     if (demo || dev) {
@@ -61,7 +68,7 @@ export function useAuth() {
       return;
     }
     await supabase.auth.signOut();
-  }, [demo, dev, router]);
+  }, [demo, dev, router, supabase]);
 
   return { user, session, loading, signOut, isDemo: demo, isDev: dev };
 }
