@@ -64,6 +64,7 @@ def _build_user_prompt(
     template = _jinja_env.get_template("guide_generation.j2")
     return template.render(
         transcript=transcript,
+        persona=persona,
         persona_instructions=persona_instructions,
         tier=tier,
         video_title=video_title or "Unknown",
@@ -294,7 +295,13 @@ async def _call_generation(
             f"The 'tldr' must be a string: a concise summary scaled to the video's length and complexity.\n"
             f"Do NOT include any text before or after the JSON. Only valid JSON."
         )
-
+        # Pro tier: add explicit quiz structure so the LLM knows the shape
+        if "quiz" in output_model.model_fields:
+            schema_instruction += (
+                "\nEach item in 'quiz' must have: question (str), options (array of exactly 4 strings), "
+                "correct_index (int 0-3, zero-based index of correct answer), explanation (str). "
+                "Generate exactly 3-5 quiz questions covering different themes.\n"
+            )
 
         response = await asyncio.to_thread(
             openai_client.chat.completions.create,
@@ -457,3 +464,44 @@ def render_guide_markdown(content_json: dict, tier: str) -> str:
         md_parts.append(f"*{reflection}*\n")
 
     return "\n".join(md_parts)
+
+
+async def generate_quiz_from_guide(
+    guide_json: dict,
+    openai_client: OpenAI,
+    model_name: str | None = None,
+) -> list[dict]:
+    """
+    Generate quiz questions from an existing guide JSON using the quiz template.
+
+    Used as a fallback when the main guide generation returned an empty quiz field.
+    Returns a list of raw quiz question dicts (not validated Pydantic objects).
+    """
+    settings = get_settings()
+    resolved_model = model_name or settings.quiz_model
+
+    template = _jinja_env.get_template("quiz_generation.j2")
+    user_prompt = template.render(guide_json=json.dumps(guide_json, indent=2))
+
+    schema_hint = (
+        "\n\nRespond with ONLY a valid JSON object: {\"quiz\": [...]}\n"
+        "Each item in 'quiz' must have: question (str), options (array of exactly 4 strings), "
+        "correct_index (int 0-3), explanation (str).\n"
+        "Generate exactly 3 quiz questions. No text outside the JSON."
+    )
+
+    try:
+        response = await asyncio.to_thread(
+            openai_client.chat.completions.create,
+            model=resolved_model,
+            messages=[{"role": "user", "content": user_prompt + schema_hint}],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+            max_tokens=2000,
+        )
+        raw_text = response.choices[0].message.content or ""
+        data = json.loads(raw_text)
+        return data.get("quiz", [])
+    except Exception as exc:
+        logger.warning("generator.quiz_fallback_failed", error=str(exc))
+        return []

@@ -13,6 +13,9 @@ INSTRUCTIONS:
    - Medium videos (15-45 min): 3-5 sentences
    - Long/complex videos (45+ min): 5-8 sentences
    The summary should capture the core message, key arguments, and practical takeaways so someone can decide whether to watch the full video.
+   {% if persona == "academic" %}
+   For the academic persona, make the TL;DR thesis-driven: identify the central claim, the conceptual or methodological framework, the strongest supporting reasoning, and any important caveat, limitation, or implication.
+   {% endif %}
 
 2. **Memory Questions**: Generate active recall questions with brief answers that test the viewer's understanding and retention of the material. Scale the count to the video length: 5-8 for short videos, 8-12 for medium, 12-15 for long. Questions should:
    - Cover all major topics discussed in the video
@@ -33,6 +36,9 @@ INSTRUCTIONS:
    - A real-world analogy or concrete example
    {% if not chapters or chapters | length <= 6 %}- **Subtopics**: 2-4 concise subtopic strings (3-8 words each) representing distinct aspects of the theme.
    - **Deep Dive** (optional): For complex themes, include a deeper explanation with technical details and related concepts.{% endif %}
+   {% if persona == "academic" %}
+   For the academic persona, each theme should surface the argument structure: what claim is being made, what mechanism or framework explains it, what evidence or reasoning supports it, and what limitation, tension, or tradeoff is intellectually important.
+   {% endif %}
 
 4. **CRITICAL — Timestamps**: The transcript below has inline timestamps in [MM:SS] or [H:MM:SS] format{% if duration_display %} and the video is {{ duration_display }} long{% endif %}. Your time_range values MUST use ONLY timestamps that actually appear in the transcript{% if chapters %} or in the provided Chapters list{% endif %}. Pick the nearest real marker for the start and end of each theme. Never invent, round, or extrapolate timestamps.
 
