@@ -1,0 +1,14 @@
+{
+  "question": "When should we use Groq vs OpenAI in the pipeline?",
+  "answer": "In the MindMesh pipeline, the choice between Groq and OpenAI is determined by the token count of the input. Groq Llama 4 Scout should be used for inputs with fewer than 13,000 tokens, while OpenAI GPT-4.1 should be used for inputs that are 13,000 tokens or greater.",
+  "source_references": [
+    "Backend Python Conventions - LLM Integration",
+    "MindMesh Engineering Guidelines - Anti-Patterns to Avoid"
+  ],
+  "confidence": "high",
+  "follow_up_suggestions": [
+    "How is the token count calculated for routing LLM calls?",
+    "What specific models are used for Groq and OpenAI according to the guidelines?",
+    "Are there any other factors besides token count that could influence the choice of LLM in the future?"
+  ]
+}

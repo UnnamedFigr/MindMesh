@@ -83,14 +83,53 @@ cd frontend && pnpm lint
 | STT fallback | whisper-large-v3-turbo | Groq | When captions unavailable |
 
 ## Current Status (March 2026)
-- **Phase 1 & 2:** 100% complete (backend + frontend MVP operational)
-- **Phase 3 (in progress):** Stripe integration, quiz UI, semantic search/associations
-- **Phase 4:** Polish & launch (not started)
+- **Phase 1 & 2:** 100% complete
+- **Phase 3:** ~95% complete — all code shipped; one external ops task remains (create Stripe product in Dashboard → get `price_xxx` → set `NEXT_PUBLIC_STRIPE_PRO_PRICE_ID` in `frontend/.env.local`)
+- **Phase 4:** Polish & launch (not started — see `.github/CONTEXT.md` for priority order)
+
+## Key Data Contracts
+
+### `StudyGuideCore` JSON shape (what `guide_json` contains)
+```json
+{ "tldr": "...", "memory_questions": [...], "themes": [{ "theme_number": 1, "title": "...", "time_range": "...", "core_concept": "...", "mechanics": ["..."], "analogy_or_example": "...", "subtopics": [], "deep_dive": null }] }
+```
+
+### `StudyGuidePro` JSON shape (extends Core)
+```json
+{ ...core_fields, "reflection_question": "...", "quiz": [...] }
+```
+
+## Database Tables (Supabase — applied via 001_initial_schema.sql)
+| Table | Purpose |
+|-------|---------|
+| `profiles` | Auth-linked profile, `tier`, `credits_remaining` |
+| `processing_jobs` | Async job queue (`pending → processing → completed/failed`) |
+| `study_guides` | Full guide output with `guide_json`, `guide_markdown` |
+| `videos` | Cached video metadata (title, channel, duration) |
+| `concepts` | Extracted concepts per guide (for embeddings) |
+| `api_usage` | Per-user API cost tracking |
+| `reflections` | Persisted Pro user reflection answers |
+
+## Singleton DB Client
+- `from app.dependencies import get_db` — FastAPI `Depends()` injection
+- Falls back to `DevStore` (in-memory) when Supabase keys are placeholders
+- Never instantiate `AsyncClient` directly in a service — always use `Depends(get_db)`
+
+## Critical Anti-Patterns (Never Do)
+- Never `print()` — use `structlog.get_logger()`
+- Never hardcode prompts — use Jinja2 templates in `prompts/templates/`
+- Never return raw dicts from API routes — use Pydantic response models
+- Never access `supabase` directly in routers — use `db = Depends(get_db)`
+- Never use `npm` — only `pnpm` (TAR_ENTRY_ERROR on Windows)
+- Never put secrets in `NEXT_PUBLIC_*` except Supabase anon/url (safe by design)
+- Never call backend directly from React components — use `lib/api.ts` functions
 
 ## Workflow Rules
-- Plan before executing complex features — output a step-by-step plan first
+- **Read `.github/CONTEXT.md` before significant work** — it is the authoritative source for current phase status, architectural decisions, and known gotchas. It overrides any stale information in this file.
+- Plan before executing complex features — use the `@planner` agent to write `.github/PLAN.md`, then `@implementer` to execute, then `@auditor` to review.
+- Use `@Explore` for read-only codebase Q&A instead of chaining multiple file reads in the main context.
 - Identify security vulnerabilities proactively — refuse insecure approaches
 - Challenge flawed architectural decisions directly
 - After making changes, run the relevant build/test commands to verify
 - Use branch isolation for new features
-- When a major architectural pivot or important workflow decision happens, proactively suggest updating memory so repository context stays aligned with the current state
+- **Update `.github/CONTEXT.md`** whenever an architectural decision is made, a phase changes, or a significant gotcha is discovered. Keep it accurate.

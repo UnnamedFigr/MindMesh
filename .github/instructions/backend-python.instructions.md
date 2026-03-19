@@ -37,3 +37,27 @@ applyTo: "backend/**/*.py"
 - Production: Supabase client with PostgREST builder pattern
 - Always use `.execute()` and check response — Supabase errors are silent
 - RLS enforced on all tables — service key bypasses RLS for admin operations
+
+## Phase 3 Patterns
+
+### Extending the Worker Pipeline (`services/worker.py`)
+- After `render_guide_markdown()`, add Pro steps inside `if tier == "pro":` block
+- Call `generate_quiz()` from `services/generator.py` → persist to `study_guides.guide_json["quiz"]`
+- Call `compute_associations()` from `services/embeddings.py` → persist to `associations` table
+- Call `persist_reflection()` if reflection text provided
+
+### Pro Schema Extension (`prompts/schemas.py`)
+- `StudyGuidePro(StudyGuideCore)` — add `quiz: list[QuizQuestion]` field
+- `QuizQuestion` model: `{ question, options: list[str], correct_index: int, explanation }`
+- All Pydantic validators must use `mode="before"` when cleaning LLM output
+
+### Stripe Webhooks (`routers/webhooks.py`)
+- Always verify `stripe.Webhook.construct_event()` before processing
+- Idempotency: check `stripe_events` table before acting; insert after processing
+- Update `users.tier` and `users.credits_remaining` via service key (bypasses RLS)
+- Never use `db = Depends(get_db)` inside `webhooks.py` — use direct service key client
+
+### Embeddings & Associations (`services/embeddings.py`)
+- Use `text-embedding-3-small` (512 dims) for all guide chunks
+- Store in `guide_embeddings` table; associations computed via pgvector cosine similarity
+- Call `compute_and_store_associations(guide_id, user_id, db)` after guide generation
