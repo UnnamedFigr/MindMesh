@@ -15,6 +15,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
 from app.dependencies import get_current_user
@@ -203,8 +204,31 @@ def create_app() -> FastAPI:
                 "credits_used": 0,
                 "daily_credit_limit": 3,
                 "credits_remaining": 3,
-                "tier": "free",
+                "tier": "core",
             }
+
+    # ── Security Headers Middleware ──────────────────────────
+    class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            response = await call_next(request)
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+            if settings.environment == "production":
+                response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; "
+                    "script-src 'self'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' https://img.youtube.com https://i.ytimg.com data:; "
+                    "connect-src 'self' https://*.supabase.co https://api.stripe.com; "
+                    "frame-src https://checkout.stripe.com https://billing.stripe.com; "
+                    "font-src 'self'"
+                )
+            return response
+
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # ── CORS (Added Last = Outer Layer) ────────────────────────
     # We add this last so it intercepts OPTIONS requests before any
@@ -215,8 +239,8 @@ def create_app() -> FastAPI:
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-        max_age=600,
+        allow_headers=["Authorization", "Content-Type", "Accept", "stripe-signature"],
+        max_age=86400,
     )
 
     return app
