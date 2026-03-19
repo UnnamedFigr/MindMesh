@@ -25,7 +25,7 @@ from app.models.responses import (
     StudyGuideResponse,
 )
 from app.services.credits import check_credits, get_credit_cost
-from app.services.worker import check_existing_guide, create_job, process_job
+from app.services.worker import check_existing_guide, create_job, get_user_tier, process_job
 from app.utils.youtube import extract_video_id, validate_video
 
 logger = structlog.get_logger()
@@ -73,17 +73,18 @@ async def create_guide(
         )
 
     supabase = get_supabase()
+    tier = await get_user_tier(user_id, supabase)
 
     # Check for existing guide (no duplicate creation)
     existing_id = await check_existing_guide(
-        video_id, request.persona, user_id, supabase
+        video_id, request.persona, tier, user_id, supabase
     )
     if existing_id:
         raise HTTPException(
             status_code=409,
             detail={
                 "code": "GUIDE_EXISTS",
-                "message": "You already have a guide for this video with this persona.",
+                "message": "You already have a guide for this video with this persona and tier.",
                 "guide_id": existing_id,
             },
         )
