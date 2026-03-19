@@ -162,9 +162,6 @@ async def _handle_payment_failed(data: dict) -> None:
 
 
 def _get_supabase():
-    """Get Supabase client."""
-    from supabase import create_client
-    from app.config import get_settings
-
-    settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_key)
+    """Get Supabase client via the shared singleton."""
+    from app.db import get_supabase
+    return get_supabase()

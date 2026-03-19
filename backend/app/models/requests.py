@@ -27,3 +27,19 @@ class RetryJobRequest(BaseModel):
     """Request body for POST /api/jobs/{id}/retry."""
 
     pass
+
+
+class SaveReflectionRequest(BaseModel):
+    """Request body for POST /api/guides/{id}/reflection."""
+
+    content: str = Field(
+        ..., min_length=1, max_length=5000, description="The user's reflection text."
+    )
+
+
+class CheckoutRequest(BaseModel):
+    """Request body for POST /api/billing/checkout."""
+
+    price_id: str = Field(..., description="Stripe Price ID for the Pro subscription.")
+    success_url: str = Field(..., description="URL to redirect after successful payment.")
+    cancel_url: str = Field(..., description="URL to redirect if user cancels checkout.")

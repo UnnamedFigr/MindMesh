@@ -14,6 +14,7 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
 from typing import TYPE_CHECKING
 
 import structlog
@@ -26,6 +27,17 @@ logger = structlog.get_logger()
 # Module-level singleton — created once on first call, reused forever.
 _client = None
 
+# Per-request flag: when True, get_supabase() returns the in-memory DevStore
+# instead of the real Supabase client.  Set via set_dev_db_context().
+_force_dev_store: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "_force_dev_store", default=False,
+)
+
+
+def set_dev_db_context(is_dev: bool) -> None:
+    """Mark the current request as dev-mode so get_supabase() returns DevStore."""
+    _force_dev_store.set(is_dev)
+
 
 def get_supabase():
     """
@@ -34,6 +46,11 @@ def get_supabase():
     Thread-safe at module import level; FastAPI's single-process model
     means there are no concurrent initialisation races.
     """
+    # Per-request override: dev-mode token with real Supabase keys
+    if _force_dev_store.get(False):
+        from app.services.dev_store import get_dev_client
+        return get_dev_client()
+
     global _client
     if _client is not None:
         return _client

@@ -132,6 +132,21 @@ class StudyGuideCore(BaseModel):
 # ── Pro Tier Extensions ──────────────────────────────────────────────
 
 
+class QuizQuestion(BaseModel):
+    """A single multiple-choice quiz question."""
+
+    question: str = Field(..., description="The quiz question text.")
+    options: list[str] = Field(
+        ..., min_length=4, max_length=4, description="Exactly 4 answer options (A–D)."
+    )
+    correct_index: int = Field(
+        ..., ge=0, le=3, description="0-based index of the correct answer."
+    )
+    explanation: str = Field(
+        ..., description="Brief explanation of why the correct answer is right."
+    )
+
+
 class StudyGuidePro(StudyGuideCore):
     """Pro tier study guide output (paid users) — extends Core."""
 
@@ -140,4 +155,10 @@ class StudyGuidePro(StudyGuideCore):
         description=(
             "An open-ended reflection question connecting the material to the learner's life."
         ),
+    )
+    quiz: list[QuizQuestion] = Field(
+        default_factory=list,
+        min_length=0,
+        max_length=10,
+        description="3–5 multiple-choice quiz questions for active recall.",
     )

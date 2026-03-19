@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.dependencies import get_current_user
 from app.routers import guides, jobs, webhooks
+from app.routers import associations, billing, reflections
 from app.utils.errors import MindMeshError
 
 # ── Structured Logging ─────────────────────────────────────────
@@ -157,7 +158,9 @@ def create_app() -> FastAPI:
     app.include_router(guides.router)
     app.include_router(jobs.router)
     app.include_router(webhooks.router)
-
+    app.include_router(associations.router)
+    app.include_router(reflections.router)
+    app.include_router(billing.router)
     # ── Health Check ───────────────────────────────────────────
     @app.get("/health", tags=["system"])
     async def health_check():
@@ -169,25 +172,33 @@ def create_app() -> FastAPI:
 
     @app.get("/api/credits", tags=["credits"])
     async def get_credits(user: dict = Depends(get_current_user)):
-        """Get current user's credit status."""
+        """Get current user's credit status. Auto-provisions profile on first call."""
         from app.db import get_supabase
         from app.services.credits import check_credits
-        from app.services.dev_store import is_dev_mode
-
-        if is_dev_mode():
-            return {
-                "credits_used": 0,
-                "daily_credit_limit": 999,
-                "credits_remaining": 999,
-                "tier": "pro",
-            }
 
         user_id = user["sub"]
+        supabase = get_supabase()
+
+        # Auto-create profile if it doesn't exist (e.g. user signed up before
+        # migrations were applied, so the trigger didn't fire).
+        profile_res = (
+            supabase.table("profiles")
+            .select("id")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not profile_res.data:
+            supabase.table("profiles").insert({
+                "id": user_id,
+                "email": user.get("email", ""),
+                "display_name": user.get("email", "").split("@")[0],
+            }).execute()
+
         try:
-            credit_info = await check_credits(user_id, 0, get_supabase())
+            credit_info = await check_credits(user_id, 0, supabase)
             return credit_info
         except Exception:
-            # If credits check fails (e.g., new user without profile yet), return defaults
             return {
                 "credits_used": 0,
                 "daily_credit_limit": 3,

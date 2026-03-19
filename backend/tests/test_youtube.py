@@ -4,6 +4,7 @@ Tests for YouTube URL parsing utility.
 
 import pytest
 from app.utils.youtube import extract_video_id, is_playlist_url
+from app.utils.errors import ValidationError
 
 
 class TestExtractVideoId:
@@ -43,22 +44,28 @@ class TestExtractVideoId:
         assert extract_video_id("youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
     def test_invalid_url(self):
-        assert extract_video_id("https://www.google.com") is None
+        with pytest.raises(ValidationError):
+            extract_video_id("https://www.google.com")
 
     def test_empty_string(self):
-        assert extract_video_id("") is None
+        with pytest.raises(ValidationError):
+            extract_video_id("")
 
     def test_none_input(self):
-        assert extract_video_id(None) is None
+        with pytest.raises((ValidationError, AttributeError)):
+            extract_video_id(None)
 
     def test_random_text(self):
-        assert extract_video_id("not a url at all") is None
+        with pytest.raises(ValidationError):
+            extract_video_id("not a url at all")
 
     def test_youtube_homepage(self):
-        assert extract_video_id("https://www.youtube.com") is None
+        with pytest.raises(ValidationError):
+            extract_video_id("https://www.youtube.com")
 
     def test_youtube_channel(self):
-        assert extract_video_id("https://www.youtube.com/@channel") is None
+        with pytest.raises(ValidationError):
+            extract_video_id("https://www.youtube.com/@channel")
 
 
 class TestIsPlaylistUrl:
