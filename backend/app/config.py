@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # ── Supabase ──────────────────────────────────────────────
     supabase_url: str
     supabase_service_key: str
-    supabase_jwt_secret: str
+    supabase_jwt_secret: str = ""  # Not used for verification; kept for reference
 
     # ── OpenAI ────────────────────────────────────────────────
     openai_api_key: str

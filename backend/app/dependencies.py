@@ -6,18 +6,19 @@ These are injected via `Depends()` in route handlers.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import defaultdict
 from typing import Annotated
 
 from fastapi import Depends, Header
-from jose import JWTError, jwt
-
 from app.config import Settings, get_settings
-from app.services.dev_store import is_dev_mode
+from app.services.dev_store import DEV_USER_ID, is_dev_mode
 from app.utils.errors import AuthError, RateLimitError
 
 import structlog
+
+from app.db import get_supabase
 
 logger = structlog.get_logger()
 
@@ -28,7 +29,7 @@ _active_jobs: dict[str, int] = defaultdict(int)  # user_id → count
 
 # ── Dev mode user ──────────────────────────────────────────────────────
 _DEV_USER = {
-    "sub": "dev-user-001",
+    "sub": DEV_USER_ID,
     "email": "dev@mindmesh.local",
     "role": "authenticated",
 }
@@ -54,40 +55,45 @@ async def get_current_user(
     """
     Verify Supabase JWT and return the user payload.
 
-    In dev mode (placeholder Supabase keys), returns a dev user without JWT verification.
+    Uses Supabase Auth API (supabase.auth.get_user) — the recommended
+    server-side verification that does not require the raw JWT secret.
+    In dev mode (placeholder Supabase keys), returns a dev user without
+    any verification.
     Returns dict with at least: {"sub": "<user-id>", "email": "..."}
     """
-    # Dev mode bypass — accept any token when Supabase keys are placeholders
+    # Dev mode bypass — placeholder Supabase keys OR dev-mode token in development
     if is_dev_mode():
         logger.debug("auth.dev_mode_bypass", token_preview=token[:10])
         return _DEV_USER
 
+    if token == "dev-mode" and settings.environment == "development":
+        from app.db import set_dev_db_context
+        set_dev_db_context(True)
+        logger.debug("auth.dev_token_bypass")
+        return _DEV_USER
+
     try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-    except JWTError as exc:
+        supabase = get_supabase()
+        user_response = await asyncio.to_thread(supabase.auth.get_user, token)
+        user = user_response.user
+    except Exception as exc:
         raise AuthError(
-            f"JWT verification failed: {exc}",
+            f"Token verification failed: {exc}",
             code="AUTH_ERROR",
             user_message="Your session has expired. Please sign in again.",
         )
 
-    user_id = payload.get("sub")
-    if not user_id:
+    if not user or not user.id:
         raise AuthError(
-            "JWT missing 'sub' claim",
+            "Supabase returned no user for the provided token",
             code="AUTH_ERROR",
             user_message="Invalid authentication token.",
         )
 
     return {
-        "sub": user_id,
-        "email": payload.get("email", ""),
-        "role": payload.get("role", "authenticated"),
+        "sub": str(user.id),
+        "email": user.email or "",
+        "role": "authenticated",
     }
 
 
