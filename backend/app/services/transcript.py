@@ -359,7 +359,7 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
 
             cookie_file = _get_cookie_file()
             ydl_opts = {
-                "format": "bestaudio[ext=m4a]/bestaudio/best",
+                "format": "bestaudio/best",
                 "outtmpl": str(Path(tmpdir) / "audio.%(ext)s"),
                 "postprocessors": [
                     {
