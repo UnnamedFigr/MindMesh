@@ -169,7 +169,6 @@ def create_app() -> FastAPI:
             "status": "healthy",
             "version": "0.1.0",
             "environment": settings.environment,
-            "allowed_origins": settings.allowed_origins,
         }
 
     @app.get("/api/credits", tags=["credits"])
@@ -234,7 +233,7 @@ def create_app() -> FastAPI:
     # ── CORS (Added Last = Outer Layer) ────────────────────────
     # We add this last so it intercepts OPTIONS requests before any
     # other middleware or route validation runs.
-    origins = [o.strip() for o in settings.allowed_origins.split(",")]
+    origins = [o.strip().rstrip("/") for o in settings.allowed_origins.split(",")]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
