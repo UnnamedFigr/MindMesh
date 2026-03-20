@@ -14,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 import structlog
 
+from app.db import get_supabase
 from app.dependencies import check_rate_limit, get_current_user, mark_job_finished, mark_job_started
 from app.models.requests import CreateGuideRequest
 from app.models.responses import (
@@ -24,7 +25,7 @@ from app.models.responses import (
     StudyGuideResponse,
 )
 from app.services.credits import check_credits, get_credit_cost
-from app.services.worker import check_existing_guide, create_job, process_job
+from app.services.worker import check_existing_guide, create_job, get_user_tier, process_job
 from app.utils.youtube import extract_video_id, validate_video
 
 logger = structlog.get_logger()
@@ -71,26 +72,29 @@ async def create_guide(
             detail={"code": "INVALID_URL", "message": "Invalid YouTube URL."},
         )
 
+    supabase = get_supabase()
+    tier = await get_user_tier(user_id, supabase)
+
     # Check for existing guide (no duplicate creation)
     existing_id = await check_existing_guide(
-        video_id, request.persona, user_id, _get_supabase()
+        video_id, request.persona, tier, user_id, supabase
     )
     if existing_id:
         raise HTTPException(
             status_code=409,
             detail={
                 "code": "GUIDE_EXISTS",
-                "message": "You already have a guide for this video with this persona.",
+                "message": "You already have a guide for this video with this persona and tier.",
                 "guide_id": existing_id,
             },
         )
 
     # Check credits
     credit_cost = get_credit_cost()
-    await check_credits(user_id, credit_cost, _get_supabase())
+    await check_credits(user_id, credit_cost, supabase)
 
     # Create job
-    job_id = await create_job(user_id, request.youtube_url, request.persona, _get_supabase())
+    job_id = await create_job(user_id, request.youtube_url, request.persona, supabase)
 
     # Mark rate limit
     mark_job_started(user_id)
@@ -124,12 +128,12 @@ async def list_guides(
     user: dict = Depends(get_current_user),
     page: int = Query(1, ge=1),
     per_page: int = Query(12, ge=1, le=50),
-    search: str | None = Query(None, max_length=200),
-    persona: str | None = Query(None, pattern="^(beginner|academic|practitioner)$"),
+    search: str | None = Query(None, description="Search term for title or channel"),
+    persona: str | None = Query(None, pattern="^(beginner|academic)$"),
 ):
     """List the current user's study guides with pagination."""
     user_id = user["sub"]
-    supabase = _get_supabase()
+    supabase = get_supabase()
 
     query = (
         supabase.table("study_guides")
@@ -180,7 +184,7 @@ async def list_guides(
 async def get_guide(guide_id: str, user: dict = Depends(get_current_user)):
     """Get a specific study guide by ID."""
     user_id = user["sub"]
-    supabase = _get_supabase()
+    supabase = get_supabase()
 
     response = (
         supabase.table("study_guides")
@@ -218,7 +222,7 @@ async def get_guide(guide_id: str, user: dict = Depends(get_current_user)):
 async def delete_guide(guide_id: str, user: dict = Depends(get_current_user)):
     """Delete a study guide."""
     user_id = user["sub"]
-    supabase = _get_supabase()
+    supabase = get_supabase()
 
     # Verify ownership
     existing = (
@@ -242,22 +246,6 @@ async def delete_guide(guide_id: str, user: dict = Depends(get_current_user)):
         pass  # Non-fatal
 
 
-# ── Helpers ────────────────────────────────────────────────────
-
-def _get_supabase():
-    """Get Supabase client (service role for backend ops). Uses in-memory dev store in dev mode."""
-    from app.services.dev_store import is_dev_mode, get_dev_client
-
-    if is_dev_mode():
-        return get_dev_client()
-
-    from supabase import create_client
-    from app.config import get_settings
-
-    settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_key)
-
-
 async def _run_job(job_id: str, user_id: str, youtube_url: str, video_id: str, persona: str):
     """Wrapper to run job and clean up rate limit state."""
     try:
@@ -267,7 +255,7 @@ async def _run_job(job_id: str, user_id: str, youtube_url: str, video_id: str, p
             youtube_url=youtube_url,
             video_id=video_id,
             persona=persona,
-            supabase_client=_get_supabase(),
+            supabase_client=get_supabase(),
         )
     finally:
         mark_job_finished(user_id)

@@ -1,13 +1,15 @@
 "use client";
 
-import type { QuickBrief as QuickBriefType } from "@/types";
+import type { GuideJSON } from "@/types";
 import { Zap, CheckCircle2, Quote, Clock, BarChart3 } from "lucide-react";
 
-interface QuickBriefProps {
+type QuickBriefType = NonNullable<GuideJSON["quick_brief"]>;
+
+interface TenSecondTakeawayProps {
   brief: QuickBriefType;
 }
 
-export default function QuickBrief({ brief }: QuickBriefProps) {
+export default function TenSecondTakeaway({ brief }: TenSecondTakeawayProps) {
   return (
     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6 mb-6">
       {/* Hook */}
@@ -51,7 +53,7 @@ export default function QuickBrief({ brief }: QuickBriefProps) {
         )}
 
         {/* Time saved */}
-        {brief.time_saved_minutes > 0 && (
+        {brief.time_saved_minutes && brief.time_saved_minutes > 0 && (
           <div className="flex items-center gap-1.5 text-xs text-gray-500">
             <Clock className="w-3.5 h-3.5" />
             <span>

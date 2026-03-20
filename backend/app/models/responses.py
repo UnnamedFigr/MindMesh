@@ -96,7 +96,46 @@ class CreditStatusResponse(BaseModel):
     credits_remaining: int
     reset_at: datetime | None = None
     tier: str = "free"
-    tier: str
+
+
+class AssociationItem(BaseModel):
+    """A single guide association (related guide pair)."""
+
+    guide_id: str
+    title: str
+    channel_name: str
+    thumbnail_url: str | None = None
+    similarity_score: float
+    created_at: datetime
+
+
+class AssociationListResponse(BaseModel):
+    """List of guides associated with the requested guide."""
+
+    guide_id: str
+    associations: list[AssociationItem]
+
+
+class ReflectionResponse(BaseModel):
+    """Persisted reflection answer for a guide."""
+
+    id: str
+    user_id: str
+    study_guide_id: str
+    content: str
+    created_at: datetime
+
+
+class CheckoutSessionResponse(BaseModel):
+    """Stripe checkout session URL for redirect."""
+
+    checkout_url: str
+
+
+class PortalSessionResponse(BaseModel):
+    """Stripe customer portal session URL for redirect."""
+
+    portal_url: str
 
 
 class HealthResponse(BaseModel):

@@ -8,6 +8,13 @@ echo.
 :: Clean up stale lock files
 del /f /q "%~dp0frontend\.next\dev\lock" 2>nul
 
+:: Kill zombie processes on port 8000 from previous runs
+echo [0/2] Cleaning up old processes...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr "LISTENING" ^| findstr ":8000"') do (
+    taskkill /F /PID %%a >nul 2>&1
+)
+timeout /t 2 /nobreak >nul
+
 :: Start backend in a new window
 echo [1/2] Starting backend (port 8000)...
 start "MindMesh Backend" /D "%~dp0backend" cmd /k "venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000"

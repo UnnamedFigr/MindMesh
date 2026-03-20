@@ -5,9 +5,12 @@ import {
   Zap,
   Crown,
   BookOpen,
-  Target,
   Sparkles,
 } from "lucide-react";
+import {
+  PRO_PLAN_PERIOD_DISPLAY,
+  PRO_PLAN_PRICE_DISPLAY,
+} from "@/lib/billing";
 
 const PLANS = [
   {
@@ -29,8 +32,8 @@ const PLANS = [
   },
   {
     name: "Pro",
-    price: "$9.99",
-    period: "/month",
+    price: PRO_PLAN_PRICE_DISPLAY,
+    period: PRO_PLAN_PERIOD_DISPLAY,
     description: "Unlock interactive learning features",
     cta: "Start Pro Trial",
     ctaHref: "/signup?plan=pro",

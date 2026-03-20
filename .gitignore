@@ -1,4 +1,65 @@
 # Dependencies
+.claude/
+CLAUDE.md
+node_modules/
+backend/node_modules/
+backend/package.json
+backend/pnpm-lock.yaml
+backend/venv/
+__pycache__/
+*.pyc
+plan-phase3*.prompt.md
+
+# Environment
+.env
+.env.local
+.env.production
+backend/.env
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+*.egg-info/
+mindmesh_backend.egg-info/
+frontend/build.log
+frontend/test-results/
+frontend/playwright-report/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AI Agent Config (keep copilot-instructions tracked)
+# .github/copilot-instructions.md and .github/instructions/ are committed
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Misc
+*.bak
+*.tmp
+inessential-files/
+knowledge-bridge/.venv/
+
+IMPLEMENTATION_PLAN.md
+project-documentation/# Dependencies
+.claude/
+CLAUDE.md
 node_modules/
 backend/venv/
 __pycache__/
@@ -24,6 +85,9 @@ mindmesh_backend.egg-info/
 *.swp
 *.swo
 
+# AI Agent Config (keep copilot-instructions tracked)
+# .github/copilot-instructions.md and .github/instructions/ are committed
+
 # OS
 .DS_Store
 Thumbs.db
@@ -41,7 +105,5 @@ htmlcov/
 # Misc
 *.bak
 *.tmp
-.claude
-CLAUDE.md
-copilot-instructions.md
 IMPLEMENTATION_PLAN.md
+project-documentation/

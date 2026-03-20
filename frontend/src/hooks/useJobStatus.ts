@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, startTransition } from "react";
 import { getJobStatus } from "@/lib/api";
 import type { Job } from "@/types";
 
@@ -16,15 +16,16 @@ export function useJobStatus(
 ) {
   const { pollInterval = 2500, onComplete, onError } = options;
   const [job, setJob] = useState<Job | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
 
   // Keep refs current
-  onCompleteRef.current = onComplete;
-  onErrorRef.current = onError;
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  }, [onComplete, onError]);
 
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {
@@ -38,8 +39,10 @@ export function useJobStatus(
 
     try {
       const status = await getJobStatus(jobId);
-      setJob(status);
-      setError(null);
+      startTransition(() => {
+        setJob(status);
+        setError(null);
+      });
 
       if (status.status === "completed") {
         stopPolling();
@@ -52,21 +55,19 @@ export function useJobStatus(
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch status";
-      setError(message);
+      startTransition(() => {
+        setError(message);
+      });
     }
   }, [jobId, stopPolling]);
 
   useEffect(() => {
     if (!jobId) {
-      setJob(null);
-      setError(null);
       return;
     }
 
-    setLoading(true);
-    
     // Initial fetch
-    poll().then(() => setLoading(false));
+    poll();
 
     // Start polling
     intervalRef.current = setInterval(poll, pollInterval);
@@ -74,5 +75,11 @@ export function useJobStatus(
     return () => stopPolling();
   }, [jobId, pollInterval, poll, stopPolling]);
 
-  return { job, loading, error, stopPolling };
+  // Derive state from jobId presence rather than setting in effect
+  const effectiveJob = jobId ? job : null;
+  const effectiveError = jobId ? error : null;
+  // Loading = we have a jobId but haven't received job data yet
+  const effectiveLoading = !!jobId && !job;
+
+  return { job: effectiveJob, loading: effectiveLoading, error: effectiveError, stopPolling };
 }

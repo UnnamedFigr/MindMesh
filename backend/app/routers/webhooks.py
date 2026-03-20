@@ -147,8 +147,8 @@ async def _handle_subscription_deleted(data: dict) -> None:
     user_id = response.data["id"]
 
     supabase.table("profiles").update({
-        "tier": "free",
-        "daily_credit_limit": 3,  # Free tier: 3 credits/day
+        "tier": "core",
+        "daily_credit_limit": 3,  # Core tier: 3 credits/day
         "stripe_subscription_id": None,
     }).eq("id", user_id).execute()
 
@@ -162,9 +162,6 @@ async def _handle_payment_failed(data: dict) -> None:
 
 
 def _get_supabase():
-    """Get Supabase client."""
-    from supabase import create_client
-    from app.config import get_settings
-
-    settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_key)
+    """Get Supabase client via the shared singleton."""
+    from app.db import get_supabase
+    return get_supabase()

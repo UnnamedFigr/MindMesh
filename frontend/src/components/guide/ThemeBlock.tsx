@@ -9,15 +9,18 @@ interface ThemeBlockProps {
   theme: ThemeBlockType;
   index: number;
   defaultOpen?: boolean;
+  onTimestampClick?: (timeStr: string) => void;
 }
 
 export default function ThemeBlock({
   theme,
   index,
   defaultOpen = false,
+  onTimestampClick,
 }: ThemeBlockProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [subtopicsOpen, setSubtopicsOpen] = useState(false);
+  const [deepDiveOpen, setDeepDiveOpen] = useState(false);
 
   const colors = [
     { bg: "bg-blue-50", border: "border-blue-200", accent: "text-blue-600", dot: "bg-blue-500" },
@@ -38,11 +41,19 @@ export default function ThemeBlock({
       )}
     >
       {/* Header — always visible, clickable */}
-      <button
+      <div
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left"
+        className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          }
+        }}
       >
-        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold", color.dot)}>
+        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold", color.dot)}>
           {theme.theme_number ?? index + 1}
         </div>
         <div className="flex-1 min-w-0">
@@ -56,10 +67,25 @@ export default function ThemeBlock({
           )}
         </div>
         {theme.time_range && (
-          <span className="text-xs text-gray-400 font-mono flex items-center gap-1 flex-shrink-0 mr-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent toggling the accordion
+              if (onTimestampClick) {
+                // time_range is like "05:22 - 08:15". Pass the start time.
+                const startMatch = theme.time_range.match(/^(\d{1,2}:\d{2}(?::\d{2})?)/);
+                if (startMatch) {
+                  onTimestampClick(startMatch[1]);
+                }
+              }
+            }}
+            className={cn(
+              "text-xs font-mono flex items-center gap-1 flex-shrink-0 mr-2 transition-colors min-h-[44px] min-w-[44px] justify-center",
+              onTimestampClick ? "text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-3 py-1.5 rounded-lg" : "text-gray-400"
+            )}
+          >
             <Clock className="w-3 h-3" />
             {theme.time_range}
-          </span>
+          </button>
         )}
         <ChevronDown
           className={cn(
@@ -67,7 +93,7 @@ export default function ThemeBlock({
             isOpen && "rotate-180"
           )}
         />
-      </button>
+      </div>
 
       {/* Content — collapsible */}
       <div
@@ -138,6 +164,50 @@ export default function ThemeBlock({
                         </li>
                       ))}
                     </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Deep Dive — Expandable */}
+            {theme.deep_dive && (
+              <div className="border-t pt-3 mt-3">
+                <button
+                  onClick={() => setDeepDiveOpen(!deepDiveOpen)}
+                  className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider hover:text-indigo-700 transition-colors"
+                >
+                  <ChevronRight
+                    className={cn(
+                      "w-3.5 h-3.5 transition-transform duration-200",
+                      deepDiveOpen && "rotate-90"
+                    )}
+                  />
+                  Deep Dive
+                </button>
+                <div
+                  className={cn(
+                    "grid transition-all duration-200 mt-2",
+                    deepDiveOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {theme.deep_dive.explanation}
+                      </p>
+                      {theme.deep_dive.technical_detail && (
+                        <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                          <span className="font-semibold text-gray-700">Technical Detail: </span>
+                          <span className="text-gray-600">{theme.deep_dive.technical_detail}</span>
+                        </div>
+                      )}
+                      {theme.deep_dive.related_concept && (
+                        <div className="bg-indigo-50 rounded-lg p-3 text-sm">
+                          <span className="font-semibold text-indigo-700">Related Concept: </span>
+                          <span className="text-indigo-600">{theme.deep_dive.related_concept}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
