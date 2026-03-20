@@ -17,10 +17,14 @@ import {
   demoDeleteGuide,
 } from "@/lib/demo";
 import type {
+  AssociationListResponse,
+  CheckoutSessionResponse,
   CreditStatus,
   GuideListResponse,
   Job,
   JobCreatedResponse,
+  PortalSessionResponse,
+  Reflection,
   StudyGuide,
   Persona,
 } from "@/types";
@@ -59,13 +63,20 @@ async function apiFetch<T>(
 ): Promise<T> {
   const headers = await getAuthHeaders();
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...options.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new Error(
+      "Unable to connect to the server. Please make sure the backend is running."
+    );
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -146,4 +157,64 @@ export async function getJobStatus(jobId: string): Promise<Job> {
 export async function getCredits(): Promise<CreditStatus> {
   if (isDemoMode()) return demoGetCredits();
   return apiFetch<CreditStatus>("/api/credits");
+}
+
+// ── Associations (Pro) ─────────────────────────────────────────
+
+export async function getAssociations(
+  guideId: string
+): Promise<AssociationListResponse> {
+  if (isDemoMode()) return { guide_id: guideId, associations: [] };
+  return apiFetch<AssociationListResponse>(
+    `/api/guides/${guideId}/associations`
+  );
+}
+
+// ── Reflections (Pro) ──────────────────────────────────────────
+
+export async function getReflection(
+  guideId: string
+): Promise<Reflection | null> {
+  if (isDemoMode()) return null;
+  return apiFetch<Reflection | null>(`/api/guides/${guideId}/reflection`);
+}
+
+export async function saveReflection(
+  guideId: string,
+  content: string
+): Promise<Reflection> {
+  if (isDemoMode()) {
+    throw new Error("Reflections are not available in demo mode");
+  }
+  return apiFetch<Reflection>(`/api/guides/${guideId}/reflection`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+// ── Billing ────────────────────────────────────────────────────
+
+export async function createCheckoutSession(
+  priceId: string,
+  successUrl: string,
+  cancelUrl: string
+): Promise<CheckoutSessionResponse> {
+  return apiFetch<CheckoutSessionResponse>("/api/billing/checkout", {
+    method: "POST",
+    body: JSON.stringify({
+      price_id: priceId,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    }),
+  });
+}
+
+export async function createPortalSession(): Promise<PortalSessionResponse> {
+  return apiFetch<PortalSessionResponse>("/api/billing/portal", {
+    method: "POST",
+  });
+}
+
+export async function getBillingStatus(): Promise<CreditStatus> {
+  return apiFetch<CreditStatus>("/api/billing/status");
 }

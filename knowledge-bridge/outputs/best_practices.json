@@ -1,0 +1,723 @@
+{
+  "practices": [
+    {
+      "category": "API Design",
+      "rule": "All FastAPI routes must use 'async def' with proper 'Depends()' injection.",
+      "rationale": "Ensures non-blocking operations and correct dependency management for efficient resource utilization.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Authentication",
+      "rule": "Implement 'user = Depends(get_current_user)' on all protected FastAPI endpoints.",
+      "rationale": "Ensures authentication for protected resources, restricting access to authorized users.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "API Design",
+      "rule": "Implement 'Depends(check_rate_limit)' on creation endpoints in FastAPI.",
+      "rationale": "Prevents abuse and ensures fair resource usage by limiting the rate of resource creation.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "API Design",
+      "rule": "Return Pydantic response models from FastAPI routes; never return raw dicts.",
+      "rationale": "Ensures type safety, clear API contracts, consistent data serialization, and robust API definition.",
+      "evidence_source": "Backend Python Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "API Design",
+      "rule": "Use 'status_code=202' for async job creation and '200' for successful reads in FastAPI.",
+      "rationale": "Communicates the nature of the operation (accepted for processing vs. successful retrieval) to the client, following HTTP semantics.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Error Handling",
+      "rule": "Raise 'MindMeshError' subclasses for custom exceptions; never use generic 'Exception' or 'HTTPException'.",
+      "rationale": "Provides a structured, consistent error handling mechanism with specific error types for different scenarios, improving debuggability.",
+      "evidence_source": "Backend Python Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Error Handling",
+      "rule": "All custom errors must include a machine-readable 'code' and a human-readable 'user_message'.",
+      "rationale": "Facilitates both programmatic error handling on the client side and clear user feedback.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Resilience",
+      "rule": "Wrap all LLM/API calls with tenacity retry logic (e.g., '@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))').",
+      "rationale": "Improves robustness by gracefully handling transient network issues, API rate limits, or temporary service unavailability.",
+      "evidence_source": "Backend Python Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Code Organization",
+      "rule": "Store Pydantic request models in 'models/requests.py' and response models in 'models/responses.py'.",
+      "rationale": "Organizes Pydantic models by their usage, improving code clarity and maintainability of API contracts.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "LLM Integration",
+      "rule": "Store LLM output schemas in 'prompts/schemas.py' for use with OpenAI Structured Outputs.",
+      "rationale": "Centralizes LLM output definitions and ensures type-safe interaction with LLM responses, improving reliability.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Configuration",
+      "rule": "Always use 'model_config = SettingsConfigDict(...)' for Pydantic BaseSettings.",
+      "rationale": "Ensures proper configuration loading for Pydantic settings models, promoting consistency and correctness.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Data Validation",
+      "rule": "All Pydantic validators for LLM output must use 'mode=\"before\"'.",
+      "rationale": "Allows for preprocessing raw LLM output before Pydantic's default validation, ensuring data cleanliness and robustness.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "LLM Integration",
+      "rule": "Use OpenAI-compatible SDK for Groq by setting 'base_url=\"https://api.groq.com/openai/v1\"'.",
+      "rationale": "Leverages a consistent SDK interface for different LLM providers, simplifying integration and reducing cognitive load.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "LLM Integration",
+      "rule": "Store prompts as Jinja2 templates in 'prompts/templates/'; never hardcode prompts inline.",
+      "rationale": "Centralizes prompt management, enables version control, and allows for dynamic templating without code changes, improving maintainability.",
+      "evidence_source": "Backend Python Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "LLM Integration",
+      "rule": "Perform token counting via 'tiktoken' with 'cl100k_base' encoding.",
+      "rationale": "Ensures accurate token count for LLM input, critical for cost management, model routing, and adherence to context window limits.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "LLM Integration",
+      "rule": "Route LLM calls by token count: use Groq Llama 4 Scout for <13K tokens and OpenAI GPT-4.1 for \u226513K tokens.",
+      "rationale": "Optimizes for cost and performance by leveraging the most appropriate LLM for the given input length.",
+      "evidence_source": "Backend Python Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Logging",
+      "rule": "Use 'structlog.get_logger()' for all logging; never use 'print()' or 'logging.getLogger()'.",
+      "rationale": "Ensures consistent, structured, and machine-readable logs across the backend for easier analysis, monitoring, and debugging in production.",
+      "evidence_source": "Backend Python Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Logging",
+      "rule": "Always bind context to logs (e.g., 'log = log.bind(user_id=user_id, job_id=job_id)').",
+      "rationale": "Provides crucial contextual information for effective debugging and tracing specific user requests or jobs through the system.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Database",
+      "rule": "Use 'DevStore' (in-memory) for development when Supabase keys are placeholders.",
+      "rationale": "Provides a local, lightweight database alternative for development and testing without requiring live Supabase connectivity.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend",
+        "database"
+      ]
+    },
+    {
+      "category": "Database Interaction",
+      "rule": "Always use '.execute()' and check the response for Supabase client calls, as Supabase errors can be silent.",
+      "rationale": "Ensures explicit execution confirmation and prevents silent failures, critical for reliable database operations.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend",
+        "database"
+      ]
+    },
+    {
+      "category": "Security",
+      "rule": "Enforce Row Level Security (RLS) on all user-data tables; service key bypasses RLS only for admin/worker tasks.",
+      "rationale": "Ensures data privacy and security by restricting user access to their own data, while allowing necessary administrative overrides.",
+      "evidence_source": "Backend Python Conventions, Database Conventions (Supabase / Postgres), MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend",
+        "database",
+        "general"
+      ]
+    },
+    {
+      "category": "Database Interaction",
+      "rule": "Never use 'db = Depends(get_db)' inside 'webhooks.py'; use a direct service key client instead.",
+      "rationale": "Webhook processing often requires elevated privileges to modify global user state (e.g., tier/credits) and should not be restricted by RLS.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Architecture",
+      "rule": "Extend the worker pipeline ('services/worker.py') by adding Pro steps inside an 'if tier == \"pro\":' block.",
+      "rationale": "Ensures Pro-tier features are only processed for eligible users, integrating new functionality conditionally and managing feature access.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Security",
+      "rule": "Always verify Stripe webhooks using 'stripe.Webhook.construct_event()' before processing them.",
+      "rationale": "Protects against fraudulent or malicious webhook events by ensuring their authenticity.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Integrations",
+      "rule": "Implement idempotency for Stripe webhooks by checking the 'stripe_events' table before acting and inserting after processing.",
+      "rationale": "Prevents duplicate processing of the same event, ensuring consistency in financial transactions and avoiding unintended side effects.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend",
+        "database"
+      ]
+    },
+    {
+      "category": "Integrations",
+      "rule": "Update 'users.tier' and 'users.credits_remaining' via service key, bypassing RLS, in Stripe webhooks.",
+      "rationale": "Webhook operations need to modify global user state, which requires elevated privileges not restricted by user-level RLS.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend",
+        "database"
+      ]
+    },
+    {
+      "category": "LLM Integration",
+      "rule": "Use 'text-embedding-3-small' (512 dimensions) for all guide chunks to generate embeddings.",
+      "rationale": "Standardizes the embedding model and dimension for consistent semantic search and association across all guide content.",
+      "evidence_source": "Backend Python Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Database Management",
+      "rule": "Name migration files in 'backend/migrations/' using the format 'YYYYMMDD_description.sql'.",
+      "rationale": "Provides clear chronological ordering and descriptive names for database changes, improving maintainability.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Management",
+      "rule": "Make each database migration idempotent using 'IF NOT EXISTS' or 'ON CONFLICT DO NOTHING'.",
+      "rationale": "Allows migrations to be run multiple times without error, which is crucial for reliable deployment and development workflows.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Management",
+      "rule": "Never 'DROP' or 'TRUNCATE' tables in migrations; only 'ADD' or 'ALTER' existing structures.",
+      "rationale": "Prevents accidental data loss during schema evolution and promotes a non-destructive approach to database changes.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Schema",
+      "rule": "Use 'snake_case' for all table and column names in the database.",
+      "rationale": "Ensures consistent naming conventions across the database schema, improving readability and collaboration.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Schema",
+      "rule": "Include 'id UUID PRIMARY KEY DEFAULT gen_random_uuid()', 'created_at TIMESTAMPTZ DEFAULT NOW()', and 'updated_at TIMESTAMPTZ DEFAULT NOW()' in every table.",
+      "rationale": "Provides standard primary keys, auditing timestamps, and a consistent base for all tables, aiding in debugging and data governance.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Schema",
+      "rule": "Define foreign keys with 'ON DELETE CASCADE' (e.g., 'user_id UUID REFERENCES users(id) ON DELETE CASCADE').",
+      "rationale": "Ensures referential integrity and automatic cleanup of dependent records when a parent record is deleted, preventing orphaned data.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Schema",
+      "rule": "Use 'JSONB' for flexible/nested data (e.g., 'guide_json', 'metadata').",
+      "rationale": "Allows for schema evolution and efficient querying of semi-structured data within the database, providing flexibility.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Schema",
+      "rule": "Use 'TEXT' for string columns, not 'VARCHAR', unless a specific length limit is required by a business rule.",
+      "rationale": "Avoids arbitrary length limits for general text fields, simplifying schema definition and preventing truncation issues.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Security",
+      "rule": "Use the standard RLS user policy pattern: 'CREATE POLICY \"users_own_rows\" ON <table> FOR ALL USING (auth.uid() = user_id);'.",
+      "rationale": "Provides a clear and consistent way to enforce that users can only access their own data, enhancing security.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Security",
+      "rule": "Never expose the Supabase service key to the frontend; only the anon key is safe in 'NEXT_PUBLIC_' variables.",
+      "rationale": "The service key has full administrative access and must be protected on the backend to prevent severe security breaches.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "backend",
+        "frontend",
+        "general"
+      ]
+    },
+    {
+      "category": "Database Management",
+      "rule": "Create the 'vector' extension ('CREATE EXTENSION IF NOT EXISTS vector;') for pgvector usage.",
+      "rationale": "Enables the vector data type and functions necessary for embedding storage and similarity search within Postgres.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Schema",
+      "rule": "Define embedding columns as 'embedding vector(512)' to match the 'text-embedding-3-small' model.",
+      "rationale": "Ensures correct storage and compatibility for the chosen embedding model, critical for accurate vector similarity operations.",
+      "evidence_source": "Database Conventions (Supabase / Postgres), MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Querying",
+      "rule": "Use 'ORDER BY embedding <=> $1 LIMIT 5' for cosine similarity searches with pgvector.",
+      "rationale": "Implements efficient cosine similarity search using pgvector's optimized operator, crucial for performance in vector databases.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Performance",
+      "rule": "Create an IVFFLAT or HNSW index for 'pgvector' embedding columns in production (e.g., 'CREATE INDEX ON guide_embeddings USING hnsw (embedding vector_cosine_ops);').",
+      "rationale": "Optimizes performance for similarity searches on large embedding datasets, ensuring fast retrieval times.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "Database Management",
+      "rule": "Define pg_cron jobs for scheduled tasks (e.g., monthly credit reset) only in migrations, never from application code.",
+      "rationale": "Ensures scheduled jobs are part of the database schema version control and are consistently applied across environments.",
+      "evidence_source": "Database Conventions (Supabase / Postgres)",
+      "confidence": "high",
+      "applicable_to": [
+        "database"
+      ]
+    },
+    {
+      "category": "React Architecture",
+      "rule": "Use Server Components by default; add ''use client'' only for event handlers, hooks, or browser APIs.",
+      "rationale": "Leverages server-side rendering benefits (performance, SEO) and limits client-side JavaScript bundle size for faster page loads.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Next.js Architecture",
+      "rule": "Use route groups (e.g., '(auth)', '(dashboard)') for logical grouping of routes in Next.js.",
+      "rationale": "Organizes application routes and layouts in a structured manner without affecting URL paths, improving project maintainability.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Authentication",
+      "rule": "Use middleware in 'src/middleware.ts' to handle Supabase session refresh.",
+      "rationale": "Centralizes authentication logic and ensures secure, up-to-date session management across the application.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Data Management",
+      "rule": "Use 'revalidatePath()' after mutations with the Next.js App Router.",
+      "rationale": "Ensures that cached data is refreshed after changes, maintaining data consistency in the UI after server-side operations.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "React Practices",
+      "rule": "Use functional components only; never use class components.",
+      "rationale": "Aligns with modern React practices, leveraging hooks for state and lifecycle management, simplifying component logic.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Code Organization",
+      "rule": "Organize custom React hooks in the 'hooks/' directory (e.g., 'useAuth', 'useCredits').",
+      "rationale": "Promotes reusability and separation of concerns for common logic, making code easier to find and maintain.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "React Practices",
+      "rule": "Destructure props in function signatures and define them with TypeScript interfaces.",
+      "rationale": "Improves readability, enforces type safety, and provides clear API contracts for components, reducing errors.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "TypeScript",
+      "rule": "Define types in 'types/index.ts' and keep them in sync with backend Pydantic schemas.",
+      "rationale": "Ensures type consistency between frontend and backend, preventing common integration errors and improving reliability.",
+      "evidence_source": "Frontend React/TypeScript Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend",
+        "backend",
+        "general"
+      ]
+    },
+    {
+      "category": "TypeScript",
+      "rule": "Never use 'any' in TypeScript; prefer 'unknown' and narrow types with type guards.",
+      "rationale": "Enforces stronger type safety and helps catch potential errors at compile time, leading to more robust code.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "API Integration",
+      "rule": "Route all frontend API calls through 'lib/api.ts' using the 'apiFetch<T>()' wrapper.",
+      "rationale": "Centralizes API interaction, enabling consistent authentication, error handling, and potential mocking strategies.",
+      "evidence_source": "Frontend React/TypeScript Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "API Integration",
+      "rule": "Never call the backend directly from React components; always use functions from 'lib/api.ts'.",
+      "rationale": "Enforces separation of concerns and ensures all API interactions go through the standardized wrapper, maintaining consistency.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "API Integration",
+      "rule": "Define types for API responses in 'types/index.ts' first before implementing client functions.",
+      "rationale": "Ensures type safety and clear contracts for data received from the backend, preventing type-related issues.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Styling",
+      "rule": "Use Tailwind CSS v4 utility classes only; avoid inline styles and CSS modules.",
+      "rationale": "Ensures consistent styling, improves development speed, and leverages the benefits of a utility-first CSS framework.",
+      "evidence_source": "Frontend React/TypeScript Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Styling",
+      "rule": "Use the 'cn()' helper from 'lib/utils.ts' for conditional Tailwind classes.",
+      "rationale": "Provides a clean and efficient way to manage dynamic Tailwind classes, improving readability of component JSX.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Styling",
+      "rule": "Use 'lucide-react' for icons to maintain a consistent icon library.",
+      "rationale": "Ensures visual consistency and simplifies icon management across the application.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "UX",
+      "rule": "Implement mobile-first responsive design.",
+      "rationale": "Ensures optimal user experience across all device sizes by prioritizing the design for smaller screens first.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Authentication",
+      "rule": "Use Supabase Auth (JWT in cookie) for production environments.",
+      "rationale": "Leverages a robust, managed authentication solution for production environments, simplifying auth implementation.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend",
+        "general"
+      ]
+    },
+    {
+      "category": "Development Environment",
+      "rule": "Use **pnpm only** as the package manager for the project.",
+      "rationale": "Avoids 'TAR_ENTRY_ERROR' issues on Windows experienced with 'npm' and ensures consistent dependency management across the team.",
+      "evidence_source": "Frontend React/TypeScript Conventions, MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "general"
+      ]
+    },
+    {
+      "category": "Feature Gating",
+      "rule": "Gate Pro-only sections by checking 'if (tier !== 'pro')' and rendering an '<UpgradeCTA>' component or inline upgrade prompt.",
+      "rationale": "Restricts access to premium features for non-Pro users and encourages upgrades, managing access rights effectively.",
+      "evidence_source": "Frontend React/TypeScript Conventions",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Code Style",
+      "rule": "Use 'snake_case' for all Python variables, functions, and module names.",
+      "rationale": "Ensures consistent naming conventions across the Python codebase, improving readability and adhering to PEP8.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Dependency Injection",
+      "rule": "Never instantiate 'Supabase AsyncClient' directly in FastAPI routers; always use 'Depends(get_db)'.",
+      "rationale": "Ensures consistent dependency injection and proper management of database connections, facilitating testing and resource cleanup.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend"
+      ]
+    },
+    {
+      "category": "Security",
+      "rule": "Never hardcode secrets or API keys in source code or 'NEXT_PUBLIC_' prefixed variables.",
+      "rationale": "Prevents security vulnerabilities by keeping sensitive information out of version control and client-side code, adhering to security best practices.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "general",
+        "backend",
+        "frontend"
+      ]
+    },
+    {
+      "category": "Code Style",
+      "rule": "Use 'camelCase' for JavaScript/TypeScript variables and functions, and 'PascalCase' for React components.",
+      "rationale": "Adheres to standard JavaScript/TypeScript and React naming conventions for improved readability and consistency.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "frontend"
+      ]
+    },
+    {
+      "category": "Security",
+      "rule": "Always use parameterized queries for database interactions; never string-interpolate user input into SQL.",
+      "rationale": "Prevents SQL injection vulnerabilities, a critical security risk for any database-driven application.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "backend",
+        "database"
+      ]
+    },
+    {
+      "category": "Testing",
+      "rule": "Use 'pytest' for all backend tests.",
+      "rationale": "Standardizes the testing framework for backend code, promoting consistency and leveraging its rich ecosystem.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "testing"
+      ]
+    },
+    {
+      "category": "Testing",
+      "rule": "Mock all external API calls in tests using 'pytest-mock'.",
+      "rationale": "Ensures tests are isolated, fast, and repeatable by preventing actual external network requests and their side effects.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "testing"
+      ]
+    },
+    {
+      "category": "Testing",
+      "rule": "Explicitly test error paths; happy path testing alone is insufficient.",
+      "rationale": "Ensures the application handles unexpected situations and errors gracefully, improving overall robustness and reliability.",
+      "evidence_source": "MindMesh Engineering Guidelines",
+      "confidence": "high",
+      "applicable_to": [
+        "testing"
+      ]
+    }
+  ],
+  "source_summary": "The provided documents collectively outline comprehensive engineering guidelines for the MindMesh project, covering backend Python development with FastAPI and LLM integrations, frontend React/TypeScript with Next.js App Router, and database management using Supabase and Postgres. They emphasize API design patterns, structured error handling, data modeling with Pydantic and TypeScript, robust security practices including RLS and webhook verification, consistent styling with Tailwind CSS, and specific patterns for LLM integration and managing worker pipelines.",
+  "gaps_noted": [
+    "Deployment/CI/CD strategies and infrastructure as code.",
+    "Application performance monitoring (APM), tracing, or general performance optimization beyond database indexing and LLM routing.",
+    "Specific guidelines or patterns for complex global state management in the frontend (beyond mentioning Zustand).",
+    "Broader security auditing, vulnerability scanning, or penetration testing practices.",
+    "Guidelines for internationalization/localization (i18n).",
+    "Accessibility (a11y) best practices for the frontend.",
+    "Practices for documentation outside of code (e.g., user guides, API docs, project READMEs).",
+    "Scalability guidelines for services, microservices, message queues, or caching strategies.",
+    "Frontend testing frameworks and practices (e.g., Jest, React Testing Library)."
+  ],
+  "mode": "per-call",
+  "extracted_at": "2026-03-17T18:07:04.213757+00:00",
+  "tokens_used": 18734
+}

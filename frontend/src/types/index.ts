@@ -43,25 +43,37 @@ export interface StudyGuide {
   created_at: string;
 }
 
+export interface QuickBrief {
+  hook: string;
+  key_takeaways?: string[];
+  clickbait_score?: {
+    score: number;
+    verdict: string;
+  };
+  time_saved_minutes?: number;
+  highlight_quote?: string;
+  highlight_quote_timestamp?: string;
+}
+
 export interface GuideJSON {
-  quick_brief: QuickBrief;
+  tldr?: string;
+  quick_brief?: QuickBrief;
+  memory_questions?: MemoryQuestions[] | null;
   themes: ThemeBlock[];
   quiz?: QuizQuestion[];
   reflection_question?: string;
 }
 
-export interface ClickbaitScore {
-  score: number;
-  verdict: string;
+export interface MemoryQuestions {
+  question: string;
+  answer: string;
 }
 
-export interface QuickBrief {
-  clickbait_score: ClickbaitScore;
-  time_saved_minutes: number;
-  hook: string;
-  key_takeaways: string[];
-  highlight_quote: string;
-  highlight_quote_timestamp: string;
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
 }
 
 export interface ThemeBlock {
@@ -72,14 +84,13 @@ export interface ThemeBlock {
   mechanics: string[];
   analogy_or_example: string;
   subtopics?: string[];
+  deep_dive?: DeepDive;
 }
 
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correct_index: number;
+export interface DeepDive {
   explanation: string;
-  timestamp?: string;
+  technical_detail?: string;
+  related_concept?: string;
 }
 
 export interface TriageResult {
@@ -142,12 +153,6 @@ export const PERSONA_OPTIONS: PersonaOption[] = [
     emoji: "🎓",
     description: "Technical depth, mechanisms, frameworks",
   },
-  {
-    id: "practitioner",
-    name: "Practitioner",
-    emoji: "⚡",
-    description: "Comprehensive depth, actionable steps",
-  },
 ];
 
 // ── Processing Steps ───────────────────────────────────────────
@@ -159,5 +164,39 @@ export const STEP_LABELS: Record<string, string> = {
   analyzing_content: "Analyzing content...",
   generating_guide: "Building your study guide...",
   saving_results: "Saving results...",
+  enhancing_pro: "Enhancing Pro features...",
   done: "Complete!",
 };
+
+// ── Association Types (Pro: Web of Associations) ───────────────
+export interface AssociationItem {
+  guide_id: string;
+  title: string;
+  channel_name: string;
+  thumbnail_url: string | null;
+  similarity_score: number;
+  created_at: string;
+}
+
+export interface AssociationListResponse {
+  guide_id: string;
+  associations: AssociationItem[];
+}
+
+// ── Reflection Types (Pro: persisted reflections) ─────────────
+export interface Reflection {
+  id: string;
+  user_id: string;
+  study_guide_id: string;
+  content: string;
+  created_at: string;
+}
+
+// ── Billing Types ──────────────────────────────────────────────
+export interface CheckoutSessionResponse {
+  checkout_url: string;
+}
+
+export interface PortalSessionResponse {
+  portal_url: string;
+}

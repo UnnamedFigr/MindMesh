@@ -15,10 +15,12 @@ import uvicorn
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
 from app.dependencies import get_current_user
 from app.routers import guides, jobs, webhooks
+from app.routers import associations, billing, reflections
 from app.utils.errors import MindMeshError
 
 # ── Structured Logging ─────────────────────────────────────────
@@ -157,7 +159,9 @@ def create_app() -> FastAPI:
     app.include_router(guides.router)
     app.include_router(jobs.router)
     app.include_router(webhooks.router)
-
+    app.include_router(associations.router)
+    app.include_router(reflections.router)
+    app.include_router(billing.router)
     # ── Health Check ───────────────────────────────────────────
     @app.get("/health", tags=["system"])
     async def health_check():
@@ -169,34 +173,62 @@ def create_app() -> FastAPI:
 
     @app.get("/api/credits", tags=["credits"])
     async def get_credits(user: dict = Depends(get_current_user)):
-        """Get current user's credit status."""
-        from app.services.dev_store import is_dev_mode, get_dev_client
-
-        if is_dev_mode():
-            return {
-                "credits_used": 0,
-                "daily_credit_limit": 999,
-                "credits_remaining": 999,
-                "tier": "pro",
-            }
-
-        from supabase import create_client
+        """Get current user's credit status. Auto-provisions profile on first call."""
+        from app.db import get_supabase
         from app.services.credits import check_credits
 
         user_id = user["sub"]
-        supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+        supabase = get_supabase()
+
+        # Auto-create profile if it doesn't exist (e.g. user signed up before
+        # migrations were applied, so the trigger didn't fire).
+        profile_res = (
+            supabase.table("profiles")
+            .select("id")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not profile_res.data:
+            supabase.table("profiles").insert({
+                "id": user_id,
+                "email": user.get("email", ""),
+                "display_name": user.get("email", "").split("@")[0],
+            }).execute()
 
         try:
             credit_info = await check_credits(user_id, 0, supabase)
             return credit_info
         except Exception:
-            # If credits check fails (e.g., new user), return defaults
             return {
                 "credits_used": 0,
                 "daily_credit_limit": 3,
                 "credits_remaining": 3,
-                "tier": "free",
+                "tier": "core",
             }
+
+    # ── Security Headers Middleware ──────────────────────────
+    class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            response = await call_next(request)
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+            if settings.environment == "production":
+                response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; "
+                    "script-src 'self'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' https://img.youtube.com https://i.ytimg.com data:; "
+                    "connect-src 'self' https://*.supabase.co https://api.stripe.com; "
+                    "frame-src https://checkout.stripe.com https://billing.stripe.com; "
+                    "font-src 'self'"
+                )
+            return response
+
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # ── CORS (Added Last = Outer Layer) ────────────────────────
     # We add this last so it intercepts OPTIONS requests before any
@@ -207,8 +239,8 @@ def create_app() -> FastAPI:
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-        max_age=600,
+        allow_headers=["Authorization", "Content-Type", "Accept", "stripe-signature"],
+        max_age=86400,
     )
 
     return app

@@ -1,0 +1,41 @@
+{
+  "project_name": "MindMesh",
+  "tech_stack": "Python 3.12 / FastAPI / Pydantic v2 / Next.js 16 / React 19 / TypeScript / Supabase / Tailwind CSS v4",
+  "model": "gemini-2.5-flash",
+  "cache_ttl_seconds": 3600,
+  "sources_dir": "./sources",
+  "outputs_dir": "./outputs",
+  "cache_dir": "./cache",
+  "sync_targets": [
+    {
+      "extraction_type": "best_practices",
+      "filter": { "applicable_to": ["backend"] },
+      "target_file": "../.github/instructions/backend-python.instructions.md",
+      "section": "Extracted Best Practices (knowledge-bridge)"
+    },
+    {
+      "extraction_type": "best_practices",
+      "filter": { "applicable_to": ["frontend"] },
+      "target_file": "../.github/instructions/frontend-react.instructions.md",
+      "section": "Extracted Best Practices (knowledge-bridge)"
+    },
+    {
+      "extraction_type": "best_practices",
+      "filter": { "applicable_to": ["database"] },
+      "target_file": "../.github/instructions/database.instructions.md",
+      "section": "Extracted Best Practices (knowledge-bridge)"
+    },
+    {
+      "extraction_type": "best_practices",
+      "filter": { "applicable_to": ["testing"] },
+      "target_file": "../.github/instructions/testing.instructions.md",
+      "section": "Extracted Best Practices (knowledge-bridge)"
+    },
+    {
+      "extraction_type": "anti_patterns",
+      "filter": {},
+      "target_file": "../.github/error-patterns.md",
+      "section": "Anti-Patterns from Research"
+    }
+  ]
+}

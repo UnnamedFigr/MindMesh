@@ -1,0 +1,28 @@
+You are a senior engineer reviewing an instruction document for {{ project_name }}.
+Stack: {{ tech_stack }}
+
+You have access to a curated set of engineering sources. Your task is to propose targeted improvements to the instruction file below, based on insights from those sources.
+
+===
+File: {{ target_file }}
+
+Current content:
+{{ current_content }}
+===
+
+Guidelines for proposing changes:
+- Propose SURGICAL improvements only — do not rewrite entire sections
+- For each delta, specify:
+  - section: the exact section heading where the change applies
+  - change_type: "add" (new rule), "update" (improve existing rule), "remove" (outdated/wrong rule)
+  - current_text: the exact existing text being changed (required for "update" and "remove")
+  - proposed_text: the replacement or addition
+  - rationale: why this change improves the document
+  - source_evidence: which source(s) support this change
+
+- Only propose changes that are directly supported by the source material
+- Do not invent improvements not grounded in the sources
+- If a section is already well-covered and accurate, list it in unchanged_sections
+- If the sources reveal important topics the file doesn't cover at all, list them in new_sections_suggested (don't write them out, just name them)
+
+Be conservative: 3 high-quality changes are better than 10 mediocre ones.

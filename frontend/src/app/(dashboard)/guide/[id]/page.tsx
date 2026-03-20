@@ -1,12 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getGuide, deleteGuide } from "@/lib/api";
-import GuideRenderer from "@/components/guide/GuideRenderer";
+import { getGuide, deleteGuide, getAssociations } from "@/lib/api";
 import QuizCard from "@/components/guide/QuizCard";
 import ReflectionSection from "@/components/guide/ReflectionSection";
-import QuickBrief from "@/components/guide/QuickBrief";
+import RefreshableQuestions from "@/components/guide/RefreshableQuestions";
 import ThemeBlock from "@/components/guide/ThemeBlock";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -23,7 +23,7 @@ import {
   Check,
 } from "lucide-react";
 import { formatDate, getYouTubeThumbnail } from "@/lib/utils";
-import type { StudyGuide } from "@/types";
+import type { AssociationItem, StudyGuide } from "@/types";
 
 export default function GuideViewerPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +33,7 @@ export default function GuideViewerPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [copied, setCopied] = useState<"link" | "md" | null>(null);
+  const [associations, setAssociations] = useState<AssociationItem[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -40,6 +41,12 @@ export default function GuideViewerPage() {
       try {
         const data = await getGuide(id);
         setGuide(data);
+        // Fetch associations in parallel (non-fatal for Pro guides)
+        if (data.tier === "pro") {
+          getAssociations(id)
+            .then((res) => setAssociations(res.associations))
+            .catch(() => {/* ignore */});
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load guide.");
       } finally {
@@ -71,6 +78,22 @@ export default function GuideViewerPage() {
     }
   };
 
+  const handleTimestampClick = (timeStr: string) => {
+    if (!guide?.youtube_id) return;
+    
+    // Convert "MM:SS" or "HH:MM:SS" to seconds for YouTube URL parameter
+    const parts = timeStr.split(':').map(Number);
+    let seconds = 0;
+    if (parts.length === 2) {
+      seconds = parts[0] * 60 + parts[1];
+    } else if (parts.length === 3) {
+      seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+
+    const url = `https://youtube.com/watch?v=${guide.youtube_id}&t=${seconds}s`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
@@ -98,7 +121,6 @@ export default function GuideViewerPage() {
     );
   }
 
-  const quizQuestions = guide.guide_json?.quiz ?? [];
   const thumbnail =
     guide.video_id ? getYouTubeThumbnail(guide.video_id) : null;
 
@@ -118,9 +140,12 @@ export default function GuideViewerPage() {
         <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 p-6">
           <div className="flex flex-col sm:flex-row gap-4">
             {thumbnail && (
-              <img
+              <Image
                 src={thumbnail}
                 alt={guide.title}
+                width={192}
+                height={112}
+                sizes="(max-width: 640px) 100vw, 192px"
                 className="w-full sm:w-48 h-28 object-cover rounded-lg flex-shrink-0 shadow-sm"
               />
             )}
@@ -192,9 +217,18 @@ export default function GuideViewerPage() {
         </div>
       </div>
 
-      {/* Quick Brief */}
-      {guide.guide_json?.quick_brief && (
-        <QuickBrief brief={guide.guide_json.quick_brief} />
+      {/* TL;DR Section */}
+      {guide.guide_json?.tldr && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              📋 TL;DR
+            </h2>
+          </div>
+          <div className="px-6 py-4">
+            <p className="text-sm text-gray-700 leading-relaxed">{guide.guide_json.tldr}</p>
+          </div>
+        </div>
       )}
 
       {/* Theme Blocks */}
@@ -208,35 +242,107 @@ export default function GuideViewerPage() {
           </h2>
           <div className="space-y-2">
             {guide.guide_json.themes.map((theme, i) => (
-              <ThemeBlock key={i} theme={theme} index={i} defaultOpen={i === 0} />
+              <ThemeBlock 
+                key={i} 
+                theme={theme} 
+                index={i} 
+                defaultOpen={i === 0} 
+                onTimestampClick={handleTimestampClick}
+              />
             ))}
           </div>
         </div>
       )}
 
-      {/* Guide Content (Markdown) */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8 mb-6">
-        <GuideRenderer markdown={guide.guide_markdown} />
-      </div>
-
-      {/* Quiz Section */}
-      {quizQuestions.length > 0 && (
+      {/* Memory Questions */}
+      {guide.guide_json?.memory_questions && guide.guide_json.memory_questions.length > 0 && (
+        <RefreshableQuestions questions={guide.guide_json.memory_questions} />
+      )}
+      {/* Quiz Section (Pro) */}
+      {guide.guide_json?.quiz && guide.guide_json.quiz.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-              📝
-            </span>
-            Knowledge Check
-          </h2>
-          <div className="space-y-4">
-            {quizQuestions.map((q, i) => (
-              <QuizCard key={i} question={q} index={i} />
-            ))}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-violet-50 to-purple-50">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                🧠 Active Recall Quiz
+              </h2>
+            </div>
+            <div className="p-6 space-y-4">
+              {guide.guide_json.quiz.map((q, i) => (
+                <QuizCard key={i} question={q} index={i} />
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Reflection Section */}
+      {/* Web of Associations (Pro) */}
+      {guide.tier === "pro" && associations.length > 0 && (
+        <div className="mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                🔗 Web of Associations
+                <span className="text-xs font-normal text-teal-600 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                  {associations.length} link{associations.length !== 1 ? "s" : ""}
+                </span>
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Concepts from this guide appear in these related guides
+              </p>
+            </div>
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {associations.map((assoc) => {
+                const pct = Math.round(assoc.similarity_score * 100);
+                const rel =
+                  pct >= 88
+                    ? { label: "Strongly related", color: "text-emerald-700 bg-emerald-50 border-emerald-200" }
+                    : pct >= 72
+                    ? { label: "Related", color: "text-teal-700 bg-teal-50 border-teal-200" }
+                    : { label: "Connected", color: "text-gray-600 bg-gray-50 border-gray-200" };
+                return (
+                  <a
+                    key={assoc.guide_id}
+                    href={`/guide/${assoc.guide_id}`}
+                    className="group flex flex-col gap-2 p-4 rounded-xl border border-gray-100 hover:border-teal-200 hover:bg-teal-50/30 transition-all"
+                  >
+                    <div className="flex items-start gap-3">
+                      {assoc.thumbnail_url && (
+                        <Image
+                          src={assoc.thumbnail_url}
+                          alt={assoc.title}
+                          width={56}
+                          height={36}
+                          sizes="56px"
+                          className="w-14 h-9 object-cover rounded flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-indigo-600 group-hover:text-indigo-700 truncate">
+                          <span className="text-gray-400 select-none">[[</span>
+                          {assoc.title}
+                          <span className="text-gray-400 select-none">]]</span>
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{assoc.channel_name}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-medium border px-2 py-0.5 rounded-full ${rel.color}`}
+                      >
+                        {rel.label}
+                      </span>
+                      <span className="text-xs text-gray-400">{pct}% match</span>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reflection & Notes Section */}
       <div className="mb-6">
         <ReflectionSection
           guideId={guide.id}

@@ -50,13 +50,13 @@ class TestChunkTranscript:
 
     def test_short_transcript_single_chunk(self):
         text = "Short transcript " * 10
-        chunks = chunk_transcript(text, chunk_size=12000)
+        chunks = chunk_transcript(text, max_tokens_per_chunk=12000)
         assert len(chunks) == 1
 
     def test_long_transcript_multiple_chunks(self):
         # Create text that's definitely more than one chunk
         text = "word " * 50000  # ~50K tokens
-        chunks = chunk_transcript(text, chunk_size=12000)
+        chunks = chunk_transcript(text, max_tokens_per_chunk=12000)
         assert len(chunks) > 1
 
     def test_empty_text(self):
@@ -74,10 +74,10 @@ class TestGetProcessingStrategy:
         assert get_processing_strategy(50000) == "single_pass"
 
     def test_large_transcript(self):
-        assert get_processing_strategy(100001) == "chunk_and_merge"
+        assert get_processing_strategy(100001) == "single_pass_fallback"
 
     def test_very_large_transcript(self):
-        assert get_processing_strategy(200000) == "chunk_and_merge"
+        assert get_processing_strategy(200000) == "single_pass_fallback"
 
     def test_too_large_transcript(self):
-        assert get_processing_strategy(500001) == "reject"
+        assert get_processing_strategy(200001) == "reject"

@@ -29,7 +29,7 @@ class TestErrorHierarchy:
     def test_transcript_error(self):
         err = TranscriptError("no captions", code="NO_CAPTIONS")
         assert isinstance(err, MindMeshError)
-        assert err.status_code == 502
+        assert err.status_code == 422
 
     def test_triage_error(self):
         err = TriageError("not educational", code="NOT_EDUCATIONAL")

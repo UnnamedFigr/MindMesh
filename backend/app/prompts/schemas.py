@@ -7,7 +7,7 @@ OpenAI's Structured Outputs mode guarantees valid JSON matching these schemas.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Triage Output ─────────────────────────────────────────────────────
@@ -46,38 +46,26 @@ class TriageResult(BaseModel):
 # ── Study Guide Output (Core Tier) ───────────────────────────────────
 
 
-class ClickbaitScore(BaseModel):
-    """Assessment of title vs. actual content alignment."""
 
-    score: int = Field(
-        ..., ge=1, le=10, description="1 = pure clickbait, 10 = perfectly accurate title"
+class MemoryQuestions(BaseModel):
+    question: str = Field(
+        ..., description="The question to be asked."
     )
-    verdict: str = Field(
-        ..., description="1-sentence assessment of the title's accuracy."
+    answer: str = Field(
+        ..., description="The answer to the question."
     )
 
+class DeepDive(BaseModel):
+    """Optional deep-dive content nested under a subtopic."""
 
-class QuickBrief(BaseModel):
-    """At-a-glance summary section of the study guide."""
-
-    clickbait_score: ClickbaitScore
-    time_saved_minutes: int = Field(
-        ..., ge=0, description="Estimated minutes saved by reading the guide vs. watching."
+    explanation: str = Field(
+        default=None, description="Detailed explanation or advanced concept (2-4 sentences)."
     )
-    hook: str = Field(
-        ..., description="Punchy 1-sentence summary of the video's core thesis."
+    technical_detail: str = Field(
+        default=None, description="Optional technical detail or mechanism."
     )
-    key_takeaways: list[str] = Field(
-        ...,
-        min_length=3,
-        max_length=3,
-        description="Exactly 3 key takeaways, each starting with an emoji.",
-    )
-    highlight_quote: str = Field(
-        ..., description="Most impactful or memorable quote from the video."
-    )
-    highlight_quote_timestamp: str = Field(
-        ..., description="Timestamp of the quote in MM:SS format."
+    related_concept: str = Field(
+        default=None, description="Optional related concept or framework."
     )
 
 
@@ -106,55 +94,71 @@ class ThemeBlock(BaseModel):
         max_length=4,
         description="Optional 2-4 expandable subtopics that break down the theme into finer concepts.",
     )
+    deep_dive: DeepDive = Field(
+        default=None, description="Optional deep-dive content for advanced learners."
+    )
 
 
 class StudyGuideCore(BaseModel):
     """Core tier study guide output (free users)."""
 
-    quick_brief: QuickBrief
+    tldr: str = Field(
+        ..., description="A concise TL;DR summary of the video, dynamically scaled to the video's length and complexity (2-8 sentences).",
+    )
+    memory_questions: list[MemoryQuestions] = Field(
+        ...,
+        min_length=3,
+        max_length=15,
+        description="A dynamically scaled list of 3-15 memory questions depending on video length and complexity.",
+    )
     themes: list[ThemeBlock] = Field(
         ...,
         min_length=2,
         description="Thematic breakdown (2+ themes based on content length).",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def drop_empty_mechanic_themes(cls, data: dict) -> dict:
+        """Remove themes where the LLM returned an empty mechanics list."""
+        if isinstance(data, dict) and "themes" in data:
+            data["themes"] = [
+                t for t in data["themes"]
+                if not isinstance(t, dict) or t.get("mechanics")
+            ]
+        return data
+
 
 # ── Pro Tier Extensions ──────────────────────────────────────────────
 
 
 class QuizQuestion(BaseModel):
-    """A multiple-choice quiz question for active recall."""
+    """A single multiple-choice quiz question."""
 
-    question: str = Field(..., description="The quiz question.")
+    question: str = Field(..., description="The quiz question text.")
     options: list[str] = Field(
-        ...,
-        min_length=4,
-        max_length=4,
-        description="Exactly 4 answer options (A–D).",
+        ..., min_length=4, max_length=4, description="Exactly 4 answer options (A–D)."
     )
     correct_index: int = Field(
-        ..., ge=0, le=3, description="Index of the correct answer (0–3)."
+        ..., ge=0, le=3, description="0-based index of the correct answer."
     )
     explanation: str = Field(
-        ..., description="Brief explanation of why this is correct."
-    )
-    timestamp: str = Field(
-        ..., description="Where in the video the answer can be found (MM:SS)."
+        ..., description="Brief explanation of why the correct answer is right."
     )
 
 
 class StudyGuidePro(StudyGuideCore):
     """Pro tier study guide output (paid users) — extends Core."""
 
-    quiz: list[QuizQuestion] = Field(
-        ...,
-        min_length=3,
-        max_length=3,
-        description="Exactly 3 active recall quiz questions.",
-    )
     reflection_question: str = Field(
         ...,
         description=(
             "An open-ended reflection question connecting the material to the learner's life."
         ),
+    )
+    quiz: list[QuizQuestion] = Field(
+        default_factory=list,
+        min_length=0,
+        max_length=10,
+        description="3–5 multiple-choice quiz questions for active recall.",
     )

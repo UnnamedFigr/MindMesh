@@ -26,7 +26,8 @@ from app.services.credits import (
     log_api_usage,
     refund_credits,
 )
-from app.services.generator import generate_study_guide, render_guide_markdown
+from app.services.embeddings import store_concept_embeddings
+from app.services.generator import generate_quiz_from_guide, generate_study_guide, render_guide_markdown
 from app.services.transcript import fetch_transcript
 from app.services.triage import triage_content
 from app.utils.errors import (
@@ -89,15 +90,28 @@ async def create_job(user_id: str, youtube_url: str, persona: str, supabase_clie
     return job_id
 
 
+async def get_user_tier(user_id: str, supabase_client) -> str:
+    """Return the user's effective tier used for guide generation."""
+    profile = (
+        supabase_client.table("profiles")
+        .select("tier")
+        .eq("id", user_id)
+        .single()
+        .execute()
+    )
+    return (profile.data or {}).get("tier", "free")
+
+
 async def check_existing_guide(
-    video_id: str, persona: str, user_id: str, supabase_client
+    video_id: str, persona: str, tier: str, user_id: str, supabase_client
 ) -> str | None:
-    """Check if user already has a guide for this video + persona combo."""
+    """Check if user already has a guide for this video + persona + tier combo."""
     response = (
         supabase_client.table("study_guides")
         .select("id")
         .eq("video_id", video_id)
         .eq("persona", persona)
+        .eq("tier", tier)
         .eq("user_id", user_id)
         .limit(1)
         .execute()
@@ -239,15 +253,7 @@ async def process_job(
         )
         log.info("job.step.generate", strategy=strategy)
 
-        # Determine tier from profile
-        profile = (
-            supabase_client.table("profiles")
-            .select("tier")
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
-        tier = profile.data["tier"] if profile.data else "free"
+        tier = await get_user_tier(user_id, supabase_client)
 
         guide_result = await generate_study_guide(
             transcript_raw=transcript_for_llm,
@@ -258,6 +264,7 @@ async def process_job(
             video_title=metadata.title if metadata else "Unknown",
             channel_name=metadata.channel_name if metadata else "Unknown",
             duration_seconds=metadata.duration_seconds if metadata else None,
+            chapters=transcript_data.get("chapters") if isinstance(transcript_data, dict) else None,
             model_name=guide_model,
         )
 
@@ -312,6 +319,39 @@ async def process_job(
             estimated_cost_usd=estimated_cost,
             supabase_client=supabase_client,
         )
+
+        # ── Step 10: Pro post-processing (non-fatal) ──────────
+        if tier == "pro":
+            await update_job_status(
+                job_id, "processing", supabase_client, progress=90, step="enhancing_pro"
+            )
+
+            # Quiz fallback: if guide generation returned empty quiz, generate separately
+            if not guide_json.get("quiz"):
+                log.info("worker.quiz.fallback_start")
+                quiz_items = await generate_quiz_from_guide(
+                    guide_json, guide_client, model_name=settings.quiz_model
+                )
+                if quiz_items:
+                    guide_json["quiz"] = quiz_items
+                    # Update the stored guide_json with quiz content
+                    supabase_client.table("study_guides").update(
+                        {"guide_json": guide_json}
+                    ).eq("id", guide_id).execute()
+                    log.info("worker.quiz.fallback_stored", count=len(quiz_items))
+
+            # Concept embeddings for associations (non-fatal)
+            concepts = [
+                {"name": t.get("title", ""), "description": t.get("core_concept", "")}
+                for t in guide_json.get("themes", [])
+                if t.get("title")
+            ]
+            if concepts:
+                try:
+                    await store_concept_embeddings(guide_id, concepts, supabase_client)
+                    log.info("worker.embeddings.stored", count=len(concepts))
+                except Exception as emb_exc:
+                    log.warning("worker.embeddings.failed", error=str(emb_exc))
 
         # ── Done ───────────────────────────────────────────────
         await update_job_status(

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getGuides, deleteGuide } from "@/lib/api";
@@ -19,10 +20,9 @@ import { formatDate, getYouTubeThumbnail } from "@/lib/utils";
 import type { StudyGuideListItem, Persona } from "@/types";
 
 const PERSONA_FILTERS: { label: string; value: Persona | "all" }[] = [
-  { label: "All", value: "all" },
+  { label: "All Personas", value: "all" },
   { label: "🌱 Beginner", value: "beginner" },
   { label: "🎓 Academic", value: "academic" },
-  { label: "⚡ Practitioner", value: "practitioner" },
 ];
 
 const PERSONA_EMOJI: Record<string, string> = {
@@ -66,8 +66,8 @@ export default function LibraryPage() {
       );
       setGuides(data.guides);
       setTotalCount(data.total);
-    } catch {
-      // Silently fail — user sees empty state
+    } catch (err) {
+      console.error("Failed to fetch guides:", err);
     } finally {
       setLoading(false);
     }
@@ -120,11 +120,10 @@ export default function LibraryPage() {
             <button
               key={f.value}
               onClick={() => setPersona(f.value)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                persona === f.value
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${persona === f.value
+                ? "bg-indigo-100 text-indigo-700"
+                : "bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
+                }`}
             >
               {f.label}
             </button>
@@ -172,9 +171,12 @@ export default function LibraryPage() {
               >
                 {/* Thumbnail */}
                 <div className="relative">
-                  <img
+                  <Image
                     src={getYouTubeThumbnail(guide.video_id)}
                     alt={guide.title}
+                    width={640}
+                    height={256}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="w-full h-32 object-cover"
                   />
                   <span className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded-md px-1.5 py-0.5 text-[10px] font-medium text-gray-700">

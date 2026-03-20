@@ -63,16 +63,16 @@ def chunk_transcript(
 
 def get_processing_strategy(token_count: int) -> str:
     """
-    Determine the processing strategy based on token count.
+    Determine the processing strategy based on token count for cost optimization.
 
     Returns:
-        "single_pass" for ≤120K tokens (95%+ of videos)
-        "chunk_and_merge" for 120K–500K tokens
-        "reject" for >500K tokens
+        "single_pass" for ≤60K tokens (Standard cost, GPT-4.1)
+        "single_pass_fallback" for 60K-200K tokens (Cheap fallback, GPT-4o-mini)
+        "reject" for >200K tokens (Too long even for fallback)
     """
-    if token_count <= 120_000:
+    if token_count <= 60_000:
         return "single_pass"
-    elif token_count <= 500_000:
-        return "chunk_and_merge"
+    elif token_count <= 200_000:
+        return "single_pass_fallback"
     else:
         return "reject"

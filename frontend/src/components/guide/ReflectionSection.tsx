@@ -2,37 +2,84 @@
 
 import { useState, useEffect, useRef } from "react";
 import Button from "@/components/ui/Button";
-import { PenLine, Save, CheckCircle2, Lightbulb } from "lucide-react";
+import { PenLine, Save, CheckCircle2, Lightbulb, X } from "lucide-react";
+import { getReflection, saveReflection } from "@/lib/api";
 
 interface ReflectionSectionProps {
   guideId: string;
   prompts?: string[];
 }
 
+interface Note {
+  id: string;
+  text: string;
+  timestamp: number;
+}
+
 export default function ReflectionSection({
   guideId,
   prompts,
 }: ReflectionSectionProps) {
+  const [notes, setNotes] = useState<Note[]>(() => {
+    if (typeof window === "undefined") return [];
+    const stored = localStorage.getItem(`reflection-${guideId}`);
+    if (!stored) return [];
+    try {
+      const parsedNotes = JSON.parse(stored);
+      if (Array.isArray(parsedNotes)) return parsedNotes;
+      return [{ id: "legacy-note", text: parsedNotes, timestamp: Date.now() }];
+    } catch {
+      return [{ id: "legacy-note", text: stored, timestamp: Date.now() }];
+    }
+  });
   const [text, setText] = useState("");
   const [saved, setSaved] = useState(false);
   const [activePrompt, setActivePrompt] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load saved reflection from localStorage
+  // Sync from backend (non-blocking, best-effort)
   useEffect(() => {
-    const stored = localStorage.getItem(`reflection-${guideId}`);
-    if (stored) {
-      setText(stored);
-      setSaved(true);
-    }
+    getReflection(guideId)
+      .then((backendReflection) => {
+        if (!backendReflection?.content) return;
+        setNotes((prev) => {
+          // Only prepend if no local notes exist yet (avoid duplicating on revisit)
+          if (prev.length === 0) {
+            return [{
+              id: `backend-${backendReflection.id}`,
+              text: backendReflection.content,
+              timestamp: new Date(backendReflection.created_at).getTime(),
+            }];
+          }
+          return prev;
+        });
+      })
+      .catch(() => { /* ignore backend errors — localStorage is the source of truth */ });
   }, [guideId]);
 
   const handleSave = () => {
-    localStorage.setItem(`reflection-${guideId}`, text);
+    if (!text.trim()) return;
+    const newNote: Note = {
+      id: Date.now().toString(),
+      text: text.trim(),
+      timestamp: Date.now(),
+    };
+
+    const updatedNotes = [newNote, ...notes];
+    setNotes(updatedNotes);
+    localStorage.setItem(`reflection-${guideId}`, JSON.stringify(updatedNotes));
+    setText("");
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  };
 
+    // Persist to backend (non-blocking, best-effort — localStorage is the source of truth)
+    saveReflection(guideId, newNote.text).catch(() => { /* ignore */ });
+  };
+  const handleDeleteNote = (idToRemove: string) => {
+    const updatedNotes = notes.filter((note) => note.id !== idToRemove);
+    setNotes(updatedNotes);
+    localStorage.setItem(`reflection-${guideId}`, JSON.stringify(updatedNotes));
+  }
   const handlePromptClick = (prompt: string, index: number) => {
     setActivePrompt(index);
     const prefix = text ? `${text}\n\n` : "";
@@ -55,6 +102,7 @@ export default function ReflectionSection({
   const reflectionPrompts = prompts?.length ? prompts : defaultPrompts;
 
   return (
+
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50">
@@ -79,11 +127,10 @@ export default function ReflectionSection({
               <button
                 key={i}
                 onClick={() => handlePromptClick(prompt, i)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-200 ${
-                  activePrompt === i
-                    ? "bg-amber-100 border-amber-300 text-amber-800"
-                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700"
-                }`}
+                className={`text-xs px-4 py-2.5 rounded-full border transition-all duration-200 ${activePrompt === i
+                  ? "bg-amber-100 border-amber-300 text-amber-800"
+                  : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700"
+                  }`}
               >
                 {prompt}
               </button>
@@ -102,7 +149,32 @@ export default function ReflectionSection({
           placeholder="Write your thoughts, connections, and takeaways here..."
           className="w-full min-h-[160px] rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:bg-white transition-all duration-200 resize-y"
         />
+        {/* Render Saved Notes */}
+        {notes.length > 0 && (
+          <div className="mt-8 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700 border-t border-gray-100 pt-6">Past Reflections</h3>
+            <div className="space-y-3">
+              {notes.map((note) => (
+                <div key={note.id} className="p-4 relative group bg-amber-50 rounded-xl border border-amber-100 text-sm text-gray-800 whitespace-pre-wrap">
+                  <button
+                    onClick={() => handleDeleteNote(note.id)}
+                    className="absolute top-3 right-3 p-2 text-amber-600/40 hover:text-red-500 hover:bg-white rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    aria-label="Delete note"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
 
+                  <div className="pr-6">
+                    {note.text}
+                  </div>
+                  <p className="text-xs text-amber-600/60 mt-2 font-medium">
+                    {new Date(note.timestamp).toLocaleDateString()} at {new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Save Button */}
         <div className="flex items-center justify-between">
           <p className="text-xs text-gray-400">

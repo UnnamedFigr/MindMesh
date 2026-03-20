@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { formatTimeUntilReset } from "@/lib/utils";
+import { PRO_PLAN_SETTINGS_CTA } from "@/lib/billing";
+import { createCheckoutSession, createPortalSession } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import Card, { CardHeader, CardBody } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -16,17 +18,52 @@ import {
   Mail,
   Clock,
   Shield,
-  ExternalLink,
 } from "lucide-react";
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
-  const { credits, loading: creditsLoading, refresh } = useCredits();
+  const { credits, loading: creditsLoading } = useCredits();
   const [signingOut, setSigningOut] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const [managing, setManaging] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     setSigningOut(true);
     await signOut();
+  };
+
+  const handleUpgrade = async () => {
+    setUpgrading(true);
+    setBillingError(null);
+    try {
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "";
+      if (!priceId) {
+        setBillingError("Billing is not yet configured. Please check back soon.");
+        return;
+      }
+      const successUrl = `${window.location.origin}/settings?upgraded=true`;
+      const cancelUrl = `${window.location.origin}/settings`;
+      const { checkout_url } = await createCheckoutSession(priceId, successUrl, cancelUrl);
+      window.location.href = checkout_url;
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "Failed to start checkout. Please try again.");
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setManaging(true);
+    setBillingError(null);
+    try {
+      const { portal_url } = await createPortalSession();
+      window.location.href = portal_url;
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "Failed to open billing portal. Please try again.");
+    } finally {
+      setManaging(false);
+    }
   };
 
   const tier = credits?.tier ?? "free";
@@ -183,10 +220,40 @@ export default function SettingsPage() {
                 </div>
 
                 {!isPro && (
-                  <Button className="w-full" size="lg">
-                    <Crown className="w-4 h-4 mr-2" />
-                    Upgrade to Pro — $9.99/mo
-                  </Button>
+                  <div className="space-y-2">
+                    {billingError && (
+                      <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                        {billingError}
+                      </p>
+                    )}
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={handleUpgrade}
+                      loading={upgrading}
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Upgrade to Pro — {PRO_PLAN_SETTINGS_CTA}
+                    </Button>
+                  </div>
+                )}
+                {isPro && (
+                  <div className="space-y-2">
+                    {billingError && (
+                      <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                        {billingError}
+                      </p>
+                    )}
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={handleManageSubscription}
+                      loading={managing}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Manage Subscription
+                    </Button>
+                  </div>
                 )}
               </div>
             )}

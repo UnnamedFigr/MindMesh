@@ -198,6 +198,10 @@ class _DevQueryBuilder:
         return True
 
 
+# ── Dev user identity ──────────────────────────────────────────
+DEV_USER_ID = "00000000-0000-0000-0000-000000000001"
+
+
 class _DevRpcBuilder:
     """Mimics supabase-py's RPC call interface."""
 
@@ -265,7 +269,7 @@ class _DevStore:
         # Seed a dev user profile
         self._tables["profiles"] = [
             {
-                "id": "dev-user-001",
+                "id": DEV_USER_ID,
                 "email": "dev@mindmesh.local",
                 "tier": "pro",  # Give dev user pro features
                 "credits_used": 0,
