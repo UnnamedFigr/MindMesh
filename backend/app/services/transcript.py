@@ -159,7 +159,24 @@ async def fetch_transcript(
     # ── Step 1b: Fetch chapters (runs only when not cached) ──────
     chapters = await extract_chapters(youtube_id)
 
-    # ── Step 2: youtube-transcript-api (works on residential/some cloud IPs) ──
+    # ── Step 2: InnerTube direct API (bypasses watch page bot-detection) ──
+    try:
+        result = await _fetch_captions_via_innertube(youtube_id)
+        if result:
+            logger.info(
+                "transcript.innertube_success",
+                youtube_id=youtube_id,
+                source=result["transcript_source"],
+            )
+            result["chapters"] = chapters
+            await _store_cache(youtube_id, result, supabase_client)
+            return result
+    except TranscriptError:
+        raise
+    except Exception as exc:
+        logger.warning("transcript.innertube_failed", youtube_id=youtube_id, error=str(exc))
+
+    # ── Step 3: youtube-transcript-api (works on residential/some cloud IPs) ──
     try:
         result = _fetch_youtube_captions(youtube_id)
         if result:
@@ -176,7 +193,7 @@ async def fetch_transcript(
     except Exception as exc:
         logger.warning("transcript.youtube_failed", youtube_id=youtube_id, error=str(exc))
 
-    # ── Step 3: Invidious proxy (residential IPs, no bot-detection issues) ───
+    # ── Step 4: Invidious proxy (residential IPs, no bot-detection issues) ───
     try:
         result = await _fetch_captions_via_invidious(youtube_id)
         if result:
@@ -189,7 +206,7 @@ async def fetch_transcript(
     except Exception as exc:
         logger.warning("transcript.invidious_error", youtube_id=youtube_id, error=str(exc))
 
-    # ── Step 4: yt-dlp subtitle download (with cookies if YOUTUBE_COOKIES_B64 set) ──
+    # ── Step 5: yt-dlp subtitle download (with cookies if YOUTUBE_COOKIES_B64 set) ──
     try:
         result = await _fetch_captions_via_ytdlp(youtube_id)
         if result:
@@ -202,7 +219,7 @@ async def fetch_transcript(
     except Exception as exc:
         logger.warning("transcript.ytdlp_subtitles_failed", youtube_id=youtube_id, error=str(exc))
 
-    # ── Step 5: yt-dlp audio + Whisper (ultimate fallback) ───────────────────
+    # ── Step 6: yt-dlp audio + Whisper (ultimate fallback) ───────────────────
     try:
         result = await _transcribe_with_whisper(youtube_id, settings)
         if result:
@@ -214,12 +231,14 @@ async def fetch_transcript(
         logger.error("transcript.whisper_failed", youtube_id=youtube_id, error=str(exc))
 
     # ── All failed ───────────────────────────────────────────────
-    cookie_hint = " To fix this, set YOUTUBE_COOKIES_B64 (base64-encoded Netscape cookies.txt) in your environment." if not _get_cookie_file() else ""
+    has_cookies = bool(_get_cookie_file())
+    has_proxy = bool(_get_proxy_url())
+    cookie_hint = "" if has_cookies else " To fix this, set YOUTUBE_COOKIES_B64 (base64-encoded Netscape cookies.txt) in your environment."
     logger.error(
         "transcript.all_methods_failed",
         youtube_id=youtube_id,
-        cookies_configured=bool(_get_cookie_file()),
-        proxy_configured=bool(_get_proxy_url()),
+        cookies_configured=has_cookies,
+        proxy_configured=has_proxy,
     )
     raise TranscriptError(
         f"All transcript methods failed for {youtube_id}.{cookie_hint}",
@@ -246,6 +265,229 @@ async def _check_cache(youtube_id: str, supabase_client) -> dict | None:
             return response.data
     except Exception as exc:
         logger.warning("transcript.cache_check_failed", error=str(exc))
+    return None
+
+
+# ── InnerTube direct API ─────────────────────────────────────────────────────
+# YouTube's InnerTube API serves video metadata (including caption track URLs)
+# without requiring a watch-page HTML fetch.  The watch page is where YouTube's
+# bot-detection fires; calling InnerTube directly with mobile client contexts
+# (ANDROID, IOS) often bypasses datacenter IP blocking entirely.
+#
+# API keys below are PUBLIC keys embedded in YouTube's own client code.
+
+_INNERTUBE_CLIENTS = [
+    {
+        "name": "ANDROID",
+        "context": {
+            "client": {
+                "clientName": "ANDROID",
+                "clientVersion": "19.09.37",
+                "androidSdkVersion": 30,
+                "hl": "en",
+                "gl": "US",
+            }
+        },
+        "key": "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+        "ua": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+    },
+    {
+        "name": "IOS",
+        "context": {
+            "client": {
+                "clientName": "IOS",
+                "clientVersion": "19.09.3",
+                "deviceModel": "iPhone14,3",
+                "hl": "en",
+                "gl": "US",
+            }
+        },
+        "key": "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
+        "ua": "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
+    },
+    {
+        "name": "WEB",
+        "context": {
+            "client": {
+                "clientName": "WEB",
+                "clientVersion": "2.20240313.01.00",
+                "hl": "en",
+                "gl": "US",
+            }
+        },
+        "key": "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+        "ua": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        ),
+    },
+]
+
+
+async def _fetch_captions_via_innertube(youtube_id: str) -> dict | None:
+    """
+    Fetch captions by calling YouTube's InnerTube player API directly.
+
+    This bypasses the watch-page HTML fetch that triggers bot-detection.
+    Tries ANDROID → IOS → WEB client contexts which have different bot-
+    detection thresholds.  Caption content is fetched in json3 format from
+    the track URL returned by InnerTube.
+    """
+    for client in _INNERTUBE_CLIENTS:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as http:
+                resp = await http.post(
+                    "https://www.youtube.com/youtubei/v1/player",
+                    params={"key": client["key"], "prettyPrint": "false"},
+                    json={
+                        "context": client["context"],
+                        "videoId": youtube_id,
+                    },
+                    headers={
+                        "User-Agent": client["ua"],
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Format-Version": "2",
+                    },
+                )
+
+                if resp.status_code != 200:
+                    logger.debug(
+                        "transcript.innertube_http_error",
+                        client=client["name"],
+                        status=resp.status_code,
+                    )
+                    continue
+
+                data = resp.json()
+
+                # Check playability
+                ps = data.get("playabilityStatus", {})
+                status = ps.get("status")
+                if status != "OK":
+                    reason = ps.get("reason", "")
+                    logger.debug(
+                        "transcript.innertube_not_playable",
+                        client=client["name"],
+                        status=status,
+                        reason=reason[:120],
+                    )
+                    if "Sign in" in reason or status == "LOGIN_REQUIRED":
+                        continue  # try next client
+                    if status in ("ERROR", "UNPLAYABLE"):
+                        return None  # video genuinely unavailable
+                    continue
+
+                # Extract caption tracks
+                captions_renderer = (
+                    data.get("captions", {})
+                    .get("playerCaptionsTracklistRenderer", {})
+                )
+                tracks = captions_renderer.get("captionTracks", [])
+
+                if not tracks:
+                    logger.info(
+                        "transcript.innertube_no_captions",
+                        youtube_id=youtube_id,
+                        client=client["name"],
+                    )
+                    return None  # video has no captions at all
+
+                # Pick best track: English manual > English auto > anything
+                track = (
+                    next(
+                        (t for t in tracks
+                         if t.get("languageCode", "").startswith("en")
+                         and t.get("kind") != "asr"),
+                        None,
+                    )
+                    or next(
+                        (t for t in tracks
+                         if t.get("languageCode", "").startswith("en")),
+                        None,
+                    )
+                    or tracks[0]
+                )
+
+                base_url = track.get("baseUrl", "")
+                if not base_url:
+                    continue
+
+                is_manual = track.get("kind") != "asr"
+                lang = track.get("languageCode", "en")
+
+                # Fetch caption content in json3 format
+                sep = "&" if "?" in base_url else "?"
+                caption_url = f"{base_url}{sep}fmt=json3"
+
+                caption_resp = await http.get(
+                    caption_url,
+                    headers={"User-Agent": client["ua"]},
+                )
+                if caption_resp.status_code != 200:
+                    logger.debug(
+                        "transcript.innertube_caption_fetch_error",
+                        client=client["name"],
+                        status=caption_resp.status_code,
+                    )
+                    continue
+
+                # Parse json3 format
+                caption_data = caption_resp.json()
+                segments: list[dict] = []
+                raw_parts: list[str] = []
+
+                for event in caption_data.get("events", []):
+                    if "segs" not in event:
+                        continue
+                    start_ms = event.get("tStartMs", 0)
+                    dur_ms = event.get("dDurationMs", 0)
+                    text = "".join(
+                        seg.get("utf8", "") for seg in event["segs"]
+                    ).strip()
+                    text = _sanitize_text(text)
+                    if not text or text == "\n":
+                        continue
+                    segments.append({
+                        "start": start_ms / 1000,
+                        "duration": dur_ms / 1000,
+                        "text": text,
+                    })
+                    raw_parts.append(text)
+
+                if not raw_parts:
+                    continue
+
+                raw_text = " ".join(raw_parts)
+                source = "manual_caption" if is_manual else "auto_caption"
+
+                logger.info(
+                    "transcript.innertube_caption_success",
+                    youtube_id=youtube_id,
+                    client=client["name"],
+                    language=lang,
+                    source=source,
+                    segments=len(segments),
+                )
+
+                return {
+                    "transcript_raw": raw_text,
+                    "transcript_timestamped": segments,
+                    "token_count": count_tokens(raw_text),
+                    "language_detected": lang,
+                    "transcript_source": source,
+                }
+
+        except Exception as exc:
+            logger.warning(
+                "transcript.innertube_client_error",
+                client=client["name"],
+                youtube_id=youtube_id,
+                error=str(exc),
+            )
+            continue
+
+    logger.warning("transcript.innertube_all_failed", youtube_id=youtube_id)
     return None
 
 
