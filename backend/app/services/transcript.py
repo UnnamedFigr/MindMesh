@@ -17,6 +17,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import re
 import tempfile
 import unicodedata
 from pathlib import Path
@@ -41,6 +42,17 @@ from app.utils.tokens import count_tokens
 from app.utils.youtube import extract_chapters
 
 logger = structlog.get_logger()
+
+# Public Invidious instances used as YouTube proxy fallback.
+# Invidious fetches content from its own servers (not datacenter IPs),
+# bypassing YouTube's cloud IP bot-detection entirely.
+_INVIDIOUS_INSTANCES = [
+    "https://inv.nadeko.net",
+    "https://invidious.cutting.cafe",
+    "https://invidious.nerdvpn.de",
+    "https://yt.cdaut.de",
+    "https://invidious.privacydev.net",
+]
 
 _COOKIE_FILE_PATH = Path(tempfile.gettempdir()) / "yt_cookies.txt"
 
@@ -113,7 +125,20 @@ async def fetch_transcript(
     except Exception as exc:
         logger.warning("transcript.youtube_failed", youtube_id=youtube_id, error=str(exc))
 
-    # ── Step 3: yt-dlp subtitle download (android_vr/ios bypass cloud blocks) ──
+    # ── Step 3: Invidious proxy (residential IPs, no bot-detection issues) ───
+    try:
+        result = await _fetch_captions_via_invidious(youtube_id)
+        if result:
+            logger.info("transcript.invidious_success", youtube_id=youtube_id)
+            result["chapters"] = chapters
+            await _store_cache(youtube_id, result, supabase_client)
+            return result
+    except TranscriptError:
+        raise
+    except Exception as exc:
+        logger.warning("transcript.invidious_error", youtube_id=youtube_id, error=str(exc))
+
+    # ── Step 4: yt-dlp subtitle download (with cookies if YOUTUBE_COOKIES_B64 set) ──
     try:
         result = await _fetch_captions_via_ytdlp(youtube_id)
         if result:
@@ -126,7 +151,7 @@ async def fetch_transcript(
     except Exception as exc:
         logger.warning("transcript.ytdlp_subtitles_failed", youtube_id=youtube_id, error=str(exc))
 
-    # ── Step 4: yt-dlp audio + Whisper (ultimate fallback) ──────────────────
+    # ── Step 5: yt-dlp audio + Whisper (ultimate fallback) ───────────────────
     try:
         result = await _transcribe_with_whisper(youtube_id, settings)
         if result:
@@ -251,6 +276,135 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
                 error=str(exc),
             )
         return None
+
+
+async def _fetch_captions_via_invidious(youtube_id: str) -> dict | None:
+    """
+    Fetch captions via public Invidious instances.
+
+    Invidious is an open-source YouTube front-end that proxies all requests
+    through its own servers. Since those servers are not datacenter-blocked,
+    they reliably access YouTube captions regardless of where THIS server runs.
+    No cookies or API keys required. Tries instances in order until one works.
+    """
+    for instance in _INVIDIOUS_INSTANCES:
+        try:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                # Step 1: get caption track list for this video
+                list_resp = await client.get(
+                    f"{instance}/api/v1/captions/{youtube_id}",
+                    headers={"User-Agent": "MindMesh/1.0"},
+                )
+                if list_resp.status_code != 200:
+                    logger.debug(
+                        "transcript.invidious_list_error",
+                        instance=instance,
+                        status=list_resp.status_code,
+                    )
+                    continue
+
+                data = list_resp.json()
+                captions = data.get("captions", [])
+                if not captions:
+                    # Reached Invidious successfully — video just has no captions
+                    logger.info(
+                        "transcript.invidious_no_captions",
+                        youtube_id=youtube_id,
+                        instance=instance,
+                    )
+                    return None  # No point trying other instances
+
+                # Prefer English; fall back to first available language
+                caption = next(
+                    (c for c in captions if c.get("languageCode", "").startswith("en")),
+                    captions[0],
+                )
+
+                # Step 2: fetch the caption content (WebVTT format)
+                vtt_resp = await client.get(
+                    f"{instance}/api/v1/captions/{youtube_id}",
+                    params={"label": caption["label"]},
+                    headers={"User-Agent": "MindMesh/1.0"},
+                )
+                if vtt_resp.status_code != 200:
+                    continue
+
+                segments, raw_parts = _parse_vtt(vtt_resp.text)
+                if not raw_parts:
+                    continue
+
+                raw_text = " ".join(raw_parts)
+                logger.info(
+                    "transcript.invidious_fetched",
+                    youtube_id=youtube_id,
+                    instance=instance,
+                    language=caption.get("languageCode", "en"),
+                )
+                return {
+                    "transcript_raw": raw_text,
+                    "transcript_timestamped": segments,
+                    "token_count": count_tokens(raw_text),
+                    "language_detected": caption.get("languageCode", "en"),
+                    "transcript_source": "auto_caption",
+                }
+
+        except Exception as exc:
+            logger.warning(
+                "transcript.invidious_instance_error",
+                instance=instance,
+                youtube_id=youtube_id,
+                error=str(exc),
+            )
+            continue
+
+    logger.warning("transcript.invidious_all_failed", youtube_id=youtube_id)
+    return None
+
+
+def _parse_vtt(vtt_text: str) -> tuple[list[dict], list[str]]:
+    """Parse WebVTT subtitle text into timestamped segments."""
+    segments: list[dict] = []
+    raw_parts: list[str] = []
+    lines = vtt_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        m = re.match(
+            r"(\d{1,2}:\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[.,]\d{3})",
+            line,
+        )
+        if m:
+            start = _vtt_time_to_seconds(m.group(1))
+            end = _vtt_time_to_seconds(m.group(2))
+            i += 1
+            text_lines: list[str] = []
+            while i < len(lines) and lines[i].strip():
+                text_lines.append(lines[i].strip())
+                i += 1
+            raw = " ".join(text_lines)
+            raw = re.sub(r"<[^>]+>", "", raw).strip()  # strip inline VTT tags
+            text = _sanitize_text(raw)
+            if text:
+                segments.append({
+                    "start": start,
+                    "duration": max(0.0, end - start),
+                    "text": text,
+                })
+                raw_parts.append(text)
+        else:
+            i += 1
+    return segments, raw_parts
+
+
+def _vtt_time_to_seconds(time_str: str) -> float:
+    """Convert VTT timestamp (HH:MM:SS.mmm or HH:MM:SS,mmm) to seconds."""
+    time_str = time_str.replace(",", ".")
+    parts = time_str.split(":")
+    if len(parts) == 3:
+        return float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+    if len(parts) == 2:
+        return float(parts[0]) * 60 + float(parts[1])
+    return float(parts[0])
 
 
 async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
