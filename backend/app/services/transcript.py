@@ -3,9 +3,13 @@ Transcript fetching service.
 
 Priority waterfall:
 1. Cache (Supabase videos table)
-2. youtube-transcript-api  (direct InnerTube call — works on residential IPs)
-3. yt-dlp subtitle download (android_vr/ios clients — works from cloud/datacenter IPs)
+2. youtube-transcript-api  (with optional browser cookies)
+3. yt-dlp subtitle download (with optional browser cookies — skips audio)
 4. yt-dlp audio + Groq Whisper v3 Turbo ($0.04/hr — ultimate fallback)
+
+Cloud IP note: YouTube blocks all clients from datacenter IPs without a
+pro_token. Set YOUTUBE_COOKIES_B64 (base64 Netscape cookies.txt) in Render
+to authenticate and bypass this restriction.
 """
 
 from __future__ import annotations
@@ -37,6 +41,30 @@ from app.utils.tokens import count_tokens
 from app.utils.youtube import extract_chapters
 
 logger = structlog.get_logger()
+
+_COOKIE_FILE_PATH = Path(tempfile.gettempdir()) / "yt_cookies.txt"
+
+
+def _get_cookie_file() -> str | None:
+    """
+    Decode YOUTUBE_COOKIES_B64 env var and write to a temp file.
+    Returns the path if available, None otherwise.
+
+    The env var must contain a base64-encoded Netscape cookies.txt file
+    exported from a browser that has visited youtube.com.
+    """
+    import base64
+
+    cookie_b64 = os.environ.get("YOUTUBE_COOKIES_B64", "").strip()
+    if not cookie_b64:
+        return None
+    try:
+        cookie_data = base64.b64decode(cookie_b64).decode("utf-8")
+        _COOKIE_FILE_PATH.write_text(cookie_data, encoding="utf-8")
+        return str(_COOKIE_FILE_PATH)
+    except Exception as exc:
+        logger.warning("transcript.cookie_file_error", error=str(exc))
+        return None
 
 
 async def fetch_transcript(
@@ -145,7 +173,8 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
     Falls back to any available language if English isn't found.
     """
     try:
-        ytt_api = YouTubeTranscriptApi()
+        cookie_file = _get_cookie_file()
+        ytt_api = YouTubeTranscriptApi(cookies=cookie_file) if cookie_file else YouTubeTranscriptApi()
 
         # Try English first; fall back to any available language
         try:
@@ -234,6 +263,7 @@ async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
     import yt_dlp
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        cookie_file = _get_cookie_file()
         ydl_opts = {
             "skip_download": True,
             "writesubtitles": True,
@@ -243,14 +273,14 @@ async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
             "outtmpl": str(Path(tmpdir) / "%(id)s.%(ext)s"),
             "quiet": True,
             "no_warnings": True,
-            # android_vr and ios clients bypass cloud IP bot detection;
-            # they use different auth flows that don't require po_token.
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android_vr", "ios"],
+                    "player_client": ["android_vr", "ios", "web"],
                 }
             },
         }
+        if cookie_file:
+            ydl_opts["cookiefile"] = cookie_file
 
         url = f"https://www.youtube.com/watch?v={youtube_id}"
         try:
@@ -327,6 +357,7 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
         try:
             import yt_dlp
 
+            cookie_file = _get_cookie_file()
             ydl_opts = {
                 "format": "bestaudio[ext=m4a]/bestaudio/best",
                 "outtmpl": str(Path(tmpdir) / "audio.%(ext)s"),
@@ -340,14 +371,14 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
                 "quiet": True,
                 "no_warnings": True,
                 "socket_timeout": 60,
-                # android_vr and ios clients bypass cloud IP bot detection;
-                # tv/web clients require po_token which is unavailable server-side.
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["android_vr", "ios"],
+                        "player_client": ["android_vr", "ios", "web"],
                     }
                 },
             }
+            if cookie_file:
+                ydl_opts["cookiefile"] = cookie_file
 
             url = f"https://www.youtube.com/watch?v={youtube_id}"
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
