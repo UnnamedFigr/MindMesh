@@ -151,6 +151,25 @@ def is_playlist_url(url: str) -> bool:
     return "list=" in url and "v=" not in url and "youtu.be/" not in url
 
 
+def _get_cookie_file_for_ytdlp() -> str | None:
+    """Decode YOUTUBE_COOKIES_B64 env var and write to a temp Netscape cookie file."""
+    import base64
+    import os
+    import tempfile
+    from pathlib import Path
+
+    cookie_b64 = os.environ.get("YOUTUBE_COOKIES_B64", "").strip()
+    if not cookie_b64:
+        return None
+    try:
+        cookie_data = base64.b64decode(cookie_b64).decode("utf-8")
+        cookie_path = Path(tempfile.gettempdir()) / "yt_cookies.txt"
+        cookie_path.write_text(cookie_data, encoding="utf-8")
+        return str(cookie_path)
+    except Exception:
+        return None
+
+
 async def extract_chapters(video_id: str) -> list[dict] | None:
     """
     Extract YouTube chapters (timestamps and titles) using yt-dlp.
@@ -162,15 +181,23 @@ async def extract_chapters(video_id: str) -> list[dict] | None:
         import yt_dlp
 
         proxy_url = os.environ.get("YOUTUBE_PROXY_URL", "").strip() or None
+        cookie_file = _get_cookie_file_for_ytdlp()
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
             "dumpsubtitles": False,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_vr", "ios", "web"],
+                }
+            },
         }
+        if cookie_file:
+            ydl_opts["cookiefile"] = cookie_file
         if proxy_url:
             ydl_opts["proxy"] = proxy_url
-        
+
         url = f"https://www.youtube.com/watch?v={video_id}"
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -183,12 +210,10 @@ async def extract_chapters(video_id: str) -> list[dict] | None:
                         "end_time": chapter.get("end_time", 0.0)
                     })
                 return chapters if len(chapters) > 0 else None
-                
+
     except Exception as e:
         import structlog
         logger = structlog.get_logger()
         logger.warning("youtube.chapter_extraction_failed", error=str(e), video_id=video_id)
-        # Silently fail if yt-dlp cannot extract chapters, the fallback is LLM generation
-        pass
-        
+
     return None

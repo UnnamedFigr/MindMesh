@@ -78,6 +78,11 @@ def _get_cookie_file() -> str | None:
     try:
         cookie_data = base64.b64decode(cookie_b64).decode("utf-8")
         _COOKIE_FILE_PATH.write_text(cookie_data, encoding="utf-8")
+        logger.info(
+            "transcript.cookie_file_written",
+            path=str(_COOKIE_FILE_PATH),
+            size_bytes=len(cookie_data),
+        )
         return str(_COOKIE_FILE_PATH)
     except Exception as exc:
         logger.warning("transcript.cookie_file_error", error=str(exc))
@@ -114,6 +119,7 @@ def _build_ytt_session(cookie_file: str | None, proxy_url: str | None) -> Reques
         try:
             jar.load(ignore_discard=True, ignore_expires=True)
             session.cookies.update(jar)  # type: ignore[arg-type]
+            logger.info("transcript.cookies_loaded", count=len(jar))
         except Exception as exc:
             logger.warning("transcript.cookie_load_error", error=str(exc))
 
@@ -141,16 +147,17 @@ async def fetch_transcript(
     """
     settings = get_settings()
 
-    # ── Step 1: Check cache & fetch chapters ─────────────────────
-    
-    # Always try to fetch chapters fresh, even if transcript is cached
-    chapters = await extract_chapters(youtube_id)
-    
+    # ── Step 1: Check cache ──────────────────────────────────────
     cached = await _check_cache(youtube_id, supabase_client)
     if cached:
         logger.info("transcript.cache_hit", youtube_id=youtube_id)
-        cached["chapters"] = chapters
+        # Only fetch chapters if they aren't already stored with the cache
+        if not cached.get("chapters"):
+            cached["chapters"] = await extract_chapters(youtube_id)
         return cached
+
+    # ── Step 1b: Fetch chapters (runs only when not cached) ──────
+    chapters = await extract_chapters(youtube_id)
 
     # ── Step 2: youtube-transcript-api (works on residential/some cloud IPs) ──
     try:
