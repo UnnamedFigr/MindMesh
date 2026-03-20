@@ -3,13 +3,15 @@ Transcript fetching service.
 
 Priority waterfall:
 1. Cache (Supabase videos table)
-2. youtube-transcript-api  (with optional browser cookies)
-3. yt-dlp subtitle download (with optional browser cookies — skips audio)
+2. youtube-transcript-api  (with session cookies + optional proxy)
+3. yt-dlp subtitle download (with cookies/proxy — skips audio)
 4. yt-dlp audio + Groq Whisper v3 Turbo ($0.04/hr — ultimate fallback)
 
 Cloud IP note: YouTube blocks all clients from datacenter IPs without a
 pro_token. Set YOUTUBE_COOKIES_B64 (base64 Netscape cookies.txt) in Render
-to authenticate and bypass this restriction.
+to authenticate and bypass this restriction.  Alternatively set
+YOUTUBE_PROXY_URL (e.g. http://user:pass@host:port) to route all YouTube
+requests through a residential/rotating proxy.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from pathlib import Path
 import httpx
 import structlog
 from openai import OpenAI
+from requests import Session as RequestsSession
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
     NoTranscriptFound,
@@ -32,9 +35,13 @@ from youtube_transcript_api._errors import (
     VideoUnavailable,
 )
 try:
-    from youtube_transcript_api._errors import RequestBlocked  # v0.6.x+
+    from youtube_transcript_api._errors import RequestBlocked
 except ImportError:
-    RequestBlocked = None  # older versions: treated as generic Exception
+    RequestBlocked = None
+try:
+    from youtube_transcript_api.proxies import GenericProxyConfig
+except ImportError:
+    GenericProxyConfig = None  # older versions
 
 from app.config import get_settings
 from app.utils.errors import TranscriptError
@@ -43,15 +50,13 @@ from app.utils.youtube import extract_chapters
 
 logger = structlog.get_logger()
 
-# Public Invidious instances used as YouTube proxy fallback.
-# Invidious fetches content from its own servers (not datacenter IPs),
-# bypassing YouTube's cloud IP bot-detection entirely.
+# Invidious instances that have historically worked for caption fetching.
+# The public Invidious ecosystem has shrunk significantly; instances are tried
+# in order and failures are handled gracefully — this step is best-effort.
 _INVIDIOUS_INSTANCES = [
     "https://inv.nadeko.net",
-    "https://invidious.cutting.cafe",
     "https://invidious.nerdvpn.de",
-    "https://yt.cdaut.de",
-    "https://invidious.privacydev.net",
+    "https://yewtu.be",
 ]
 
 _COOKIE_FILE_PATH = Path(tempfile.gettempdir()) / "yt_cookies.txt"
@@ -77,6 +82,45 @@ def _get_cookie_file() -> str | None:
     except Exception as exc:
         logger.warning("transcript.cookie_file_error", error=str(exc))
         return None
+
+
+def _get_proxy_url() -> str | None:
+    """Return YOUTUBE_PROXY_URL if set, else None."""
+    return os.environ.get("YOUTUBE_PROXY_URL", "").strip() or None
+
+
+def _build_ytt_session(cookie_file: str | None, proxy_url: str | None) -> RequestsSession:
+    """
+    Build a requests.Session for youtube-transcript-api with cookies and proxy.
+
+    youtube-transcript-api v1.x removed the dedicated `cookies` parameter but
+    accepts an `http_client` (requests.Session).  Loading cookies directly into
+    the session re-enables cookie-based auth.
+    """
+    import http.cookiejar
+
+    session = RequestsSession()
+    session.headers.update({
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "en-US,en;q=0.9",
+    })
+
+    if cookie_file:
+        jar = http.cookiejar.MozillaCookieJar(cookie_file)
+        try:
+            jar.load(ignore_discard=True, ignore_expires=True)
+            session.cookies.update(jar)  # type: ignore[arg-type]
+        except Exception as exc:
+            logger.warning("transcript.cookie_load_error", error=str(exc))
+
+    if proxy_url:
+        session.proxies = {"http": proxy_url, "https": proxy_url}
+
+    return session
 
 
 async def fetch_transcript(
@@ -163,12 +207,20 @@ async def fetch_transcript(
         logger.error("transcript.whisper_failed", youtube_id=youtube_id, error=str(exc))
 
     # ── All failed ───────────────────────────────────────────────
+    cookie_hint = " To fix this, set YOUTUBE_COOKIES_B64 (base64-encoded Netscape cookies.txt) in your environment." if not _get_cookie_file() else ""
+    logger.error(
+        "transcript.all_methods_failed",
+        youtube_id=youtube_id,
+        cookies_configured=bool(_get_cookie_file()),
+        proxy_configured=bool(_get_proxy_url()),
+    )
     raise TranscriptError(
-        f"All transcript methods failed for {youtube_id}",
+        f"All transcript methods failed for {youtube_id}.{cookie_hint}",
         code="TRANSCRIPT_UNAVAILABLE",
         user_message=(
             "We couldn't extract a transcript from this video. "
-            "It may be private, age-restricted, or lack spoken content."
+            "It may be private, age-restricted, or YouTube is blocking automated access. "
+            "If this keeps happening, contact support."
         ),
     )
 
@@ -199,7 +251,15 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
     """
     try:
         cookie_file = _get_cookie_file()
-        ytt_api = YouTubeTranscriptApi(cookies=cookie_file) if cookie_file else YouTubeTranscriptApi()
+        proxy_url = _get_proxy_url()
+        session = _build_ytt_session(cookie_file, proxy_url)
+
+        # Build proxy_config for v1.x (optional — also handled via session.proxies)
+        proxy_config = None
+        if proxy_url and GenericProxyConfig is not None:
+            proxy_config = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+
+        ytt_api = YouTubeTranscriptApi(http_client=session, proxy_config=proxy_config)
 
         # Try English first; fall back to any available language
         try:
@@ -280,26 +340,43 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
 
 async def _fetch_captions_via_invidious(youtube_id: str) -> dict | None:
     """
-    Fetch captions via public Invidious instances.
+    Fetch captions via public Invidious instances (best-effort).
 
-    Invidious is an open-source YouTube front-end that proxies all requests
-    through its own servers. Since those servers are not datacenter-blocked,
-    they reliably access YouTube captions regardless of where THIS server runs.
-    No cookies or API keys required. Tries instances in order until one works.
+    Invidious is an open-source YouTube front-end that proxies requests through
+    its own servers, potentially bypassing YouTube's datacenter IP blocking.
+    NOTE: the public Invidious ecosystem has shrunk significantly; most instances
+    are either behind bot-guards or offline.  This step fails gracefully.
     """
+    _browser_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    )
+    _headers = {
+        "User-Agent": _browser_ua,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
     for instance in _INVIDIOUS_INSTANCES:
         try:
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
                 # Step 1: get caption track list for this video
                 list_resp = await client.get(
                     f"{instance}/api/v1/captions/{youtube_id}",
-                    headers={"User-Agent": "MindMesh/1.0"},
+                    headers=_headers,
                 )
+                # Reject non-200 or bot-gate HTML responses
                 if list_resp.status_code != 200:
                     logger.debug(
                         "transcript.invidious_list_error",
                         instance=instance,
                         status=list_resp.status_code,
+                    )
+                    continue
+                if "text/html" in list_resp.headers.get("content-type", ""):
+                    logger.debug(
+                        "transcript.invidious_bot_gate",
+                        instance=instance,
                     )
                     continue
 
@@ -320,12 +397,14 @@ async def _fetch_captions_via_invidious(youtube_id: str) -> dict | None:
                     captions[0],
                 )
 
-                # Step 2: fetch the caption content (WebVTT format)
-                vtt_resp = await client.get(
-                    f"{instance}/api/v1/captions/{youtube_id}",
-                    params={"label": caption["label"]},
-                    headers={"User-Agent": "MindMesh/1.0"},
-                )
+                # Step 2: fetch the caption content (WebVTT) via the url field
+                caption_url = caption.get("url", "")
+                if not caption_url:
+                    caption_url = f"/api/v1/captions/{youtube_id}?label={caption.get('label', '')}"
+                if caption_url.startswith("/"):
+                    caption_url = f"{instance}{caption_url}"
+
+                vtt_resp = await client.get(caption_url, headers=_headers)
                 if vtt_resp.status_code != 200:
                     continue
 
@@ -418,6 +497,7 @@ async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cookie_file = _get_cookie_file()
+        proxy_url = _get_proxy_url()
         ydl_opts = {
             "skip_download": True,
             "writesubtitles": True,
@@ -435,6 +515,8 @@ async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
         }
         if cookie_file:
             ydl_opts["cookiefile"] = cookie_file
+        if proxy_url:
+            ydl_opts["proxy"] = proxy_url
 
         url = f"https://www.youtube.com/watch?v={youtube_id}"
         try:
@@ -512,6 +594,7 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
             import yt_dlp
 
             cookie_file = _get_cookie_file()
+            proxy_url = _get_proxy_url()
             ydl_opts = {
                 "format": "bestaudio/best",
                 "outtmpl": str(Path(tmpdir) / "audio.%(ext)s"),
@@ -533,6 +616,8 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
             }
             if cookie_file:
                 ydl_opts["cookiefile"] = cookie_file
+            if proxy_url:
+                ydl_opts["proxy"] = proxy_url
 
             url = f"https://www.youtube.com/watch?v={youtube_id}"
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

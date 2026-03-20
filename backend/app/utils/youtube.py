@@ -158,14 +158,18 @@ async def extract_chapters(video_id: str) -> list[dict] | None:
         [{"title": "Intro", "start_time": 0.0, "end_time": 60.0}, ...]
     """
     try:
+        import os
         import yt_dlp
-        
+
+        proxy_url = os.environ.get("YOUTUBE_PROXY_URL", "").strip() or None
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
             "dumpsubtitles": False,
         }
+        if proxy_url:
+            ydl_opts["proxy"] = proxy_url
         
         url = f"https://www.youtube.com/watch?v={video_id}"
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
