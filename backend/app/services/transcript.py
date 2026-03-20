@@ -25,6 +25,10 @@ from youtube_transcript_api._errors import (
     TranscriptsDisabled,
     VideoUnavailable,
 )
+try:
+    from youtube_transcript_api._errors import RequestBlocked  # v0.6.x+
+except ImportError:
+    RequestBlocked = None  # older versions: treated as generic Exception
 
 from app.config import get_settings
 from app.utils.errors import TranscriptError
@@ -123,12 +127,38 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
     Try to fetch captions via youtube-transcript-api.
 
     Attempts manual captions first, then auto-generated.
+    Falls back to any available language if English isn't found.
     """
     try:
         ytt_api = YouTubeTranscriptApi()
 
-        # Try fetching transcript — library handles manual vs auto priority
-        transcript = ytt_api.fetch(youtube_id, languages=["en", "en-US", "en-GB"])
+        # Try English first; fall back to any available language
+        try:
+            transcript = ytt_api.fetch(youtube_id, languages=["en", "en-US", "en-GB"])
+        except NoTranscriptFound:
+            # List all transcripts and pick the first available one
+            try:
+                transcript_list = ytt_api.list(youtube_id)
+                available = list(transcript_list)
+                if not available:
+                    return None
+                # Prefer manually created over auto-generated
+                manual = [t for t in available if not getattr(t, "is_generated", True)]
+                chosen = manual[0] if manual else available[0]
+                transcript = chosen.fetch()
+                logger.info(
+                    "transcript.language_fallback",
+                    youtube_id=youtube_id,
+                    language=getattr(chosen, "language_code", "unknown"),
+                )
+            except Exception as list_exc:
+                logger.warning(
+                    "transcript.list_failed",
+                    youtube_id=youtube_id,
+                    error=str(list_exc),
+                )
+                return None
+
         is_manual = not getattr(transcript, "is_generated", True)
         source = "manual_caption" if is_manual else "auto_caption"
 
@@ -155,7 +185,7 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
             "transcript_source": source,
         }
 
-    except (NoTranscriptFound, TranscriptsDisabled):
+    except TranscriptsDisabled:
         logger.info("transcript.no_captions", youtube_id=youtube_id)
         return None
     except VideoUnavailable:
@@ -165,7 +195,17 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
             user_message="This video is unavailable. It may be private or deleted.",
         )
     except Exception as exc:
-        logger.warning("transcript.youtube_error", youtube_id=youtube_id, error=str(exc))
+        exc_type = type(exc).__name__
+        # Detect IP/bot blocking — fall through to Whisper rather than aborting
+        if RequestBlocked and isinstance(exc, RequestBlocked):
+            logger.warning("transcript.ip_blocked", youtube_id=youtube_id)
+        else:
+            logger.warning(
+                "transcript.youtube_error",
+                youtube_id=youtube_id,
+                error_type=exc_type,
+                error=str(exc),
+            )
         return None
 
 
@@ -200,6 +240,13 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
                 "quiet": True,
                 "no_warnings": True,
                 "socket_timeout": 60,
+                # Use TV player client to bypass YouTube botguard on cloud/datacenter IPs.
+                # The Smart TV interface does not require browser-level bot verification.
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["tv", "ios", "web"],
+                    }
+                },
             }
 
             url = f"https://www.youtube.com/watch?v={youtube_id}"
