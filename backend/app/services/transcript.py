@@ -739,8 +739,7 @@ async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
     """
     Fetch captions via yt-dlp subtitle download — no audio download needed.
 
-    Uses android_vr/ios player clients which bypass YouTube's cloud IP
-    botguard that blocks the InnerTube caption API and web-based clients.
+    Relies on cookies (YOUTUBE_COOKIES_B64) to authenticate with YouTube.
     """
     import yt_dlp
 
@@ -756,11 +755,6 @@ async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
             "outtmpl": str(Path(tmpdir) / "%(id)s.%(ext)s"),
             "quiet": True,
             "no_warnings": True,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android_vr", "ios", "web"],
-                }
-            },
         }
         if cookie_file:
             ydl_opts["cookiefile"] = cookie_file
@@ -857,11 +851,6 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
                 "quiet": True,
                 "no_warnings": True,
                 "socket_timeout": 60,
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["android_vr", "ios", "web"],
-                    }
-                },
             }
             if cookie_file:
                 ydl_opts["cookiefile"] = cookie_file
