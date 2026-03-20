@@ -169,6 +169,7 @@ def create_app() -> FastAPI:
             "status": "healthy",
             "version": "0.1.0",
             "environment": settings.environment,
+            "allowed_origins": settings.allowed_origins,
         }
 
     @app.get("/api/credits", tags=["credits"])
