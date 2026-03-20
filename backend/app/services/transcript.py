@@ -3,14 +3,15 @@ Transcript fetching service.
 
 Priority waterfall:
 1. Cache (Supabase videos table)
-2. YouTube manual captions (free)
-3. YouTube auto captions (free)
-4. Groq Whisper v3 Turbo fallback ($0.04/hr)
+2. youtube-transcript-api  (direct InnerTube call — works on residential IPs)
+3. yt-dlp subtitle download (android_vr/ios clients — works from cloud/datacenter IPs)
+4. yt-dlp audio + Groq Whisper v3 Turbo ($0.04/hr — ultimate fallback)
 """
 
 from __future__ import annotations
 
 import html
+import json
 import os
 import tempfile
 import unicodedata
@@ -67,7 +68,7 @@ async def fetch_transcript(
         cached["chapters"] = chapters
         return cached
 
-    # ── Step 2 & 3: YouTube captions ─────────────────────────────
+    # ── Step 2: youtube-transcript-api (works on residential/some cloud IPs) ──
     try:
         result = _fetch_youtube_captions(youtube_id)
         if result:
@@ -84,6 +85,20 @@ async def fetch_transcript(
     except Exception as exc:
         logger.warning("transcript.youtube_failed", youtube_id=youtube_id, error=str(exc))
 
+    # ── Step 3: yt-dlp subtitle download (android_vr/ios bypass cloud blocks) ──
+    try:
+        result = await _fetch_captions_via_ytdlp(youtube_id)
+        if result:
+            logger.info("transcript.ytdlp_subtitles_success", youtube_id=youtube_id)
+            result["chapters"] = chapters
+            await _store_cache(youtube_id, result, supabase_client)
+            return result
+    except TranscriptError:
+        raise
+    except Exception as exc:
+        logger.warning("transcript.ytdlp_subtitles_failed", youtube_id=youtube_id, error=str(exc))
+
+    # ── Step 4: yt-dlp audio + Whisper (ultimate fallback) ──────────────────
     try:
         result = await _transcribe_with_whisper(youtube_id, settings)
         if result:
@@ -94,7 +109,7 @@ async def fetch_transcript(
     except Exception as exc:
         logger.error("transcript.whisper_failed", youtube_id=youtube_id, error=str(exc))
 
-    # ── Step 5: All failed ───────────────────────────────────────
+    # ── All failed ───────────────────────────────────────────────
     raise TranscriptError(
         f"All transcript methods failed for {youtube_id}",
         code="TRANSCRIPT_UNAVAILABLE",
@@ -209,6 +224,91 @@ def _fetch_youtube_captions(youtube_id: str) -> dict | None:
         return None
 
 
+async def _fetch_captions_via_ytdlp(youtube_id: str) -> dict | None:
+    """
+    Fetch captions via yt-dlp subtitle download — no audio download needed.
+
+    Uses android_vr/ios player clients which bypass YouTube's cloud IP
+    botguard that blocks the InnerTube caption API and web-based clients.
+    """
+    import yt_dlp
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ydl_opts = {
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,
+            "subtitleslangs": ["en", "en-US", "en-GB"],
+            "subtitlesformat": "json3",
+            "outtmpl": str(Path(tmpdir) / "%(id)s.%(ext)s"),
+            "quiet": True,
+            "no_warnings": True,
+            # android_vr and ios clients bypass cloud IP bot detection;
+            # they use different auth flows that don't require po_token.
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_vr", "ios"],
+                }
+            },
+        }
+
+        url = f"https://www.youtube.com/watch?v={youtube_id}"
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        except Exception as exc:
+            logger.warning(
+                "transcript.ytdlp_sub_download_failed",
+                youtube_id=youtube_id,
+                error=str(exc),
+            )
+            return None
+
+        # yt-dlp names subtitle files as <video_id>.<lang>.json3
+        sub_files = list(Path(tmpdir).glob(f"{youtube_id}.*.json3"))
+        if not sub_files:
+            logger.info("transcript.ytdlp_no_subtitles", youtube_id=youtube_id)
+            return None
+
+        sub_file = sorted(sub_files)[0]
+        try:
+            with open(sub_file, encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return None
+
+        # Parse json3 subtitle format
+        segments: list[dict] = []
+        raw_parts: list[str] = []
+        for event in data.get("events", []):
+            if "segs" not in event:
+                continue
+            start_ms = event.get("tStartMs", 0)
+            dur_ms = event.get("dDurationMs", 0)
+            text = "".join(seg.get("utf8", "") for seg in event["segs"]).strip()
+            text = _sanitize_text(text)
+            if not text or text == "\n":
+                continue
+            segments.append({
+                "start": start_ms / 1000,
+                "duration": dur_ms / 1000,
+                "text": text,
+            })
+            raw_parts.append(text)
+
+        if not raw_parts:
+            return None
+
+        raw_text = " ".join(raw_parts)
+        return {
+            "transcript_raw": raw_text,
+            "transcript_timestamped": segments,
+            "token_count": count_tokens(raw_text),
+            "language_detected": "en",
+            "transcript_source": "auto_caption",
+        }
+
+
 async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
     """
     Download audio via yt-dlp and transcribe with Groq Whisper v3 Turbo.
@@ -240,11 +340,11 @@ async def _transcribe_with_whisper(youtube_id: str, settings) -> dict | None:
                 "quiet": True,
                 "no_warnings": True,
                 "socket_timeout": 60,
-                # Use TV player client to bypass YouTube botguard on cloud/datacenter IPs.
-                # The Smart TV interface does not require browser-level bot verification.
+                # android_vr and ios clients bypass cloud IP bot detection;
+                # tv/web clients require po_token which is unavailable server-side.
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["tv", "ios", "web"],
+                        "player_client": ["android_vr", "ios"],
                     }
                 },
             }
