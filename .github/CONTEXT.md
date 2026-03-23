@@ -6,7 +6,7 @@
 
 ---
 
-## Current State (Updated: March 19, 2026)
+## Current State (Updated: March 23, 2026)
 
 ### Phase Completion
 | Phase | Status | Notes |
@@ -83,6 +83,13 @@ cd frontend; pnpm dev
 - **Reason:** Adding `STRIPE_PUBLISHABLE_KEY` to `backend/.env` crashes startup — Pydantic `Settings` has `extra = "forbid"`.
 - **NEVER** add unknown env vars to `backend/.env` without a matching field in `config.py`.
 
+### Stripe Local-Dev Activation Path
+- **Decision:** Added `POST /api/billing/activate` endpoint in `backend/app/routers/billing.py` to handle upgrades when webhooks can't reach localhost.
+- **How it works:** Stripe success URL contains `{CHECKOUT_SESSION_ID}` template (substituted by Stripe on redirect). Settings page extracts the session ID and calls `activateCheckoutSession(sessionId)` → `POST /api/billing/activate?session_id=…`. Backend calls `stripe.checkout.Session.retrieve(session_id)`, verifies `session.client_reference_id == user_id` (security), checks `session.payment_status in ("paid", "no_payment_required")`, then upserts `tier=pro, daily_credit_limit=15, credits_used=0` in Supabase `profiles`.
+- **Security:** `client_reference_id` is set from the authenticated user's ID at checkout creation time and verified server-side — prevents one user from activating another's session.
+- **Files:** `backend/app/routers/billing.py` (`activate_checkout_session`), `frontend/src/lib/api.ts` (`activateCheckoutSession`), `frontend/src/app/(dashboard)/settings/page.tsx` (useEffect on `?session_id=` param)
+- **Also fixed (same session):** `_handle_checkout_completed` and `_handle_subscription_updated` in `webhooks.py` now reset `credits_used=0`; `billing.py` reconciliation updates `daily_credit_limit` and `credits_used` in both DB and in-memory; `worker.py` logs the actual selected `guide_model` instead of the settings default; `settings/page.tsx` wraps `useSearchParams` in a `<Suspense>` boundary (App Router requirement).
+
 ### Stripe Webhook Secret
 - **Decision:** `STRIPE_WEBHOOK_SECRET` in `backend/.env` is the `whsec_...` from `stripe listen`, NOT the Stripe Dashboard webhook endpoint secret.
 - **Consequence:** This secret changes if you re-run `stripe listen`. Update `backend/.env` after restarting the listener in a new CLI session.
@@ -95,10 +102,11 @@ cd frontend; pnpm dev
 - **Consequence:** Monthly credit reset is handled in `backend/app/services/credits.py` (Python-side logic), NOT via pg_cron.
 
 ### Model Routing
-- **Groq `llama-4-scout-17b`:** transcript token count < 13,000
-- **OpenAI `gpt-4.1`:** transcript token count ≥ 13,000
+- **Groq `llama-4-scout-17b`:** transcript token count < 13,000 (short videos, free tier)
+- **OpenAI `gpt-5.4-mini`:** transcript token count ≥ 13,000 (long videos; 400K context, $0.75/$4.50 per 1M)
 - **Triage:** `llama-3.1-8b-instant` (fast/cheap, first 2K tokens)
 - **Embeddings:** `text-embedding-3-small` at 512 dimensions via OpenAI
+- **app runs local-only** — Render deployment dropped due to datacenter IP bot-detection on YouTube
 
 ---
 
@@ -137,6 +145,7 @@ cd frontend; pnpm dev
 | Auth hook | `frontend/src/hooks/useAuth.ts` |
 | Guide viewer (quiz, associations, reflection) | `frontend/src/app/(dashboard)/guide/[id]/page.tsx` |
 | Settings + billing | `frontend/src/app/(dashboard)/settings/page.tsx` |
+| Stripe activation endpoint | `backend/app/routers/billing.py` (`activate_checkout_session`) |
 | Reflection sync | `frontend/src/components/guide/ReflectionSection.tsx` |
 
 ---

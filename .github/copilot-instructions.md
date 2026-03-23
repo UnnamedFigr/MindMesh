@@ -1,13 +1,13 @@
 # MindMesh — Workspace Instructions
 
 ## Project Overview
-MindMesh converts YouTube videos into personalized AI study guides. Multi-model pipeline using Groq (Llama 4 Scout / Whisper) for speed and OpenAI (GPT-4.1) for long-context quality.
+MindMesh converts YouTube videos into personalized AI study guides. Multi-model pipeline using Groq (Llama 4 Scout / Whisper) for speed and OpenAI (gpt-5.4-mini) for long-context quality.
 
 ## Architecture
 - **Frontend:** Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeScript 5
 - **Backend:** Python 3.12+, FastAPI, Pydantic v2, Jinja2 prompts
 - **Database:** Supabase (Postgres + pgvector + RLS + pg_cron)
-- **AI Models:** Groq Llama-4-scout-17b (short guides), OpenAI GPT-4.1 (long guides), Groq Whisper v3 Turbo (STT), text-embedding-3-small (embeddings)
+- **AI Models:** Groq Llama-4-scout-17b (short guides), OpenAI gpt-5.4-mini (long guides, 400K context), Groq Whisper v3 Turbo (STT), text-embedding-3-small (embeddings)
 - **Payments:** Stripe (Phase 3, webhooks already scaffolded)
 
 ## Monorepo Layout
@@ -77,7 +77,7 @@ cd frontend && pnpm lint
 |------|-------|----------|-----------|
 | Triage | llama-3.1-8b-instant | Groq | First 2K tokens |
 | Guide (short) | llama-4-scout-17b | Groq | < 13K tokens |
-| Guide (long) | gpt-4.1 | OpenAI | >= 13K tokens |
+| Guide (long) | gpt-5.4-mini | OpenAI | >= 13K tokens |
 | Quiz | llama-3.1-8b-instant | Groq | Guide JSON input |
 | Embeddings | text-embedding-3-small | OpenAI | 512 dimensions |
 | STT fallback | whisper-large-v3-turbo | Groq | When captions unavailable |

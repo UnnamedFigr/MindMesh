@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     groq_base_url: str = "https://api.groq.com/openai/v1"
 
     # ── YouTube ───────────────────────────────────────────────
-    youtube_api_key: str = ""  # Optional — for metadata enrichment
+    youtube_api_key: str = ""         # Optional — for metadata enrichment
+    youtube_cookies_b64: str = ""     # Optional — base64-encoded Netscape cookies for bot-detection bypass
 
     # ── Stripe ────────────────────────────────────────────────
     stripe_secret_key: str = ""
@@ -45,7 +46,7 @@ class Settings(BaseSettings):
     # ── Model Config ──────────────────────────────────────────
     triage_model: str = "llama-3.1-8b-instant"
     guide_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"       # Groq — short videos
-    guide_model_long: str = "gpt-4.1"                                       # OpenAI — long videos (30 min+)
+    guide_model_long: str = "gpt-5.4-mini"                                 # OpenAI — long videos (30 min+); 400K context, cheap
     long_video_token_threshold: int = 13000                                # ~30 min of speech with timestamps
     quiz_model: str = "llama-3.1-8b-instant"
     embedding_model: str = "text-embedding-3-small"

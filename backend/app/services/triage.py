@@ -1,7 +1,7 @@
 """
 Content triage service.
 
-Uses GPT-4.1-nano to classify whether a transcript is educational.
+Uses llama-3.1-8b-instant to classify whether a transcript is educational.
 Fast (~1s) and cheap (~$0.001 per classification).
 """
 
@@ -49,7 +49,7 @@ async def triage_content(
     openai_client: OpenAI,
 ) -> TriageResult:
     """
-    Classify transcript content using GPT-4.1-nano.
+    Classify transcript content using llama-3.1-8b-instant.
 
     Sends the first ~2000 tokens for classification.
     Returns TriageResult with classification details.

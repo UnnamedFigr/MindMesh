@@ -26,7 +26,7 @@ applyTo: "backend/**/*.py"
 - Groq uses OpenAI-compatible SDK (`base_url="https://api.groq.com/openai/v1"`)
 - Prompts are Jinja2 templates in `prompts/templates/` — never hardcode prompts
 - Token counting via `tiktoken` with `cl100k_base` encoding
-- Route by token count: <13K → Groq Llama 4 Scout, ≥13K → OpenAI GPT-4.1
+- Route by token count: <13K → Groq Llama 4 Scout, ≥13K → OpenAI gpt-5.4-mini (400K context)
 
 ## Logging
 - Use `structlog.get_logger()` — never `print()` or `logging.getLogger()`

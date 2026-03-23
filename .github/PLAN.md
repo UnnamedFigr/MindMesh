@@ -1,77 +1,80 @@
 ---
-description: "Current implementation plan and checkpoint status for the pre-billing workflow-hardening pass."
+description: "Model routing hardening — replace gpt-4.1 with gpt-5.4-mini, fix per-model context budgets, clean stale comments."
 ---
 
-<!-- This file is the active plan artifact for the current workflow-hardening slice. -->
+<!-- This file is the active plan artifact for the model-routing hardening slice. -->
 
-# Plan: Pre-Billing Checkpoint And Workflow Hardening
+# Plan: Model Routing Hardening (Local-First, 4-Hour Stability)
 
 ## Context
-MindMesh already has the Phase 3 backend foundation, real-auth fixes, backend stability fixes, and the library join fix. What is still missing before the Stripe activation commit is a consistent workflow layer that records what is done, what remains, and where future agents should retrieve authoritative guidance.
+`gpt-4.1` is the current `guide_model_long` but the codebase has accumulated stale references to
+`gpt-4.1-mini`, `gpt-4o-mini` (hardcoded in generator fallback), and outdated pricing comments.
+The app runs local-only (Render dropped due to datacenter IP bot-detection).
+Priority: maximum stability for 4-hour videos. `gpt-5.4-mini` (400K context, $0.75/$4.50 per 1M)
+replaces `gpt-4.1` as the long-guide model.
 
 ## Done
-- [x] Fixed real-auth guide generation and restored backend responsiveness.
-- [x] Added dev-mode request routing via request-scoped DevStore behavior.
-- [x] Fixed the library query by adding the `study_guides.video_id -> videos.youtube_id` foreign key migration.
-- [x] Verified backend tests and frontend build after the Phase 3 stabilization changes.
-- [x] Added frontend visibility for library fetch failures instead of silent empty-state debugging.
-- [x] Replaced the placeholder planning artifact with a durable status and execution plan.
-- [x] Added a central workflow document for agent role selection and handoffs.
-- [x] Added a retrieval index and missing instruction files for retrieval hygiene and audit/review.
-- [x] Updated agent definitions to read `.github/CONTEXT.md` first and align on a shared workflow.
-- [x] Updated `.github/CONTEXT.md` so workflow entry points and `phase3-implementer` are discoverable.
+- [x] Added `youtube_cookies_b64` field to `Settings` (fixes startup ValidationError).
+- [x] InnerTube direct-API bypass (step 2 in transcript waterfall) — committed `17fa323`.
+- [x] yt-dlp mobile player_client format error fix — committed `ceb349f`.
+- [x] Switched `guide_model_long` from `gpt-4.1` to `gpt-5.4-mini`.
+- [x] Added `_safe_transcript_budget()` and `_max_tokens_kwarg()` in `generator.py`.
+- [x] Replaced the hardcoded fallback override with `settings.guide_model_long`.
+- [x] Updated `worker.py`, `tokens.py`, `triage.py`, and guidance docs.
+- [x] Verified backend tests (`56/56`) and frontend production build.
 
 ## Remaining
-- [ ] Keep Stripe product creation, price configuration, checkout validation, and webhook activation out of this commit.
+- [ ] Run the auditor pass on the completed slice.
 
 ## Acceptance Criteria
-- [x] `.github/PLAN.md` records both completed work and remaining pre-billing work.
-- [x] `.github/WORKFLOW.md` exists and describes the required role-based workflow for this repo.
-- [x] `.github/RAG-INDEX.md` exists and maps common questions to authoritative files.
-- [x] Retrieval and audit instruction files exist under `.github/instructions/`.
-- [x] Planner, implementer, auditor, knowledge-curator, and phase3-implementer explicitly read `.github/CONTEXT.md` before substantial work.
-- [x] `.github/CONTEXT.md` documents the workflow entry points and the role of `phase3-implementer`.
-- [ ] Stripe activation remains explicitly excluded from this slice and left for the next commit.
+- [x] Backend starts and all 56 tests pass after every change.
+- [x] `get_settings().guide_model_long` returns `"gpt-5.4-mini"`.
+- [x] `generator.py` uses `settings.guide_model_long` instead of a hardcoded fallback model.
+- [x] Per-model transcript budget helper exists and is used instead of a generic OpenAI check.
+- [x] No active routing logic references `gpt-4.1-mini` or `gpt-4o-mini`.
+- [x] Documentation files reflect the current model routing table.
 
 ## Tasks
-### Task 1 — Replace Placeholder Planning With A Real Status Artifact
-- Files: `.github/PLAN.md`
-- What: Record what has already been completed, what remains before payment activation, the acceptance criteria for this slice, and the implementation/verification steps.
-- Contracts: No application contracts change; this is a workflow artifact change only.
 
-### Task 2 — Add Workflow And Retrieval Entry Points
-- Files: `.github/WORKFLOW.md`, `.github/RAG-INDEX.md`
-- What: Create one document that defines the operational workflow and one document that maps questions to authoritative files for retrieval.
-- Contracts: Document-level contract only; no runtime code paths change.
+### Task 1 — Update `guide_model_long` in config
+- Files: `backend/app/config.py`
+- What: Change default from `"gpt-4.1"` to `"gpt-5.4-mini"`.
+- Why: `gpt-5.4-mini` has 400K context vs gpt-4.1's 1M but is cheaper and sufficient; better cost/stability for 4-hour single-pass.
 
-### Task 3 — Fill Missing Instruction Gaps
-- Files: `.github/instructions/rag-and-retrieval.instructions.md`, `.github/instructions/code-review-and-audit.instructions.md`
-- What: Add specific instructions for retrieval hygiene, source-of-truth usage, and consistent audit/review execution.
-- Contracts: Instruction-layer contract only; no backend/frontend/database runtime changes.
+### Task 2 — Fix generator.py fallback model and per-model budgets
+- Files: `backend/app/services/generator.py`
+- What:
+  a. Add `_safe_transcript_budget(model_name) -> int` helper returning 200_000 for gpt-5.* / gpt-4.* and 90_000 for Groq.
+  b. Replace `model_name = "gpt-4o-mini"` in `single_pass_fallback` branch with `settings.guide_model_long`.
+  c. Replace `is_openai_model / max_transcript_tokens` block with call to `_safe_transcript_budget`.
+  d. Update the "save cost" comment to reflect the current decision.
 
-### Task 4 — Align Agent Definitions With The Workflow
-- Files: `.github/agents/planner.agent.md`, `.github/agents/implementer.agent.md`, `.github/agents/auditor.agent.md`, `.github/agents/knowledge-curator.agent.md`, `.github/agents/phase3-implementer.agent.md`
-- What: Make every major agent read `.github/CONTEXT.md` first, align the workflow and handoff expectations, and clarify when `phase3-implementer` should be used instead of the generic implementer.
-- Contracts: Agent prompt contract changes only.
+### Task 3 — Fix worker.py stale comments and cost estimate
+- Files: `backend/app/services/worker.py`
+- What:
+  a. Update the "Step 4b" routing comment to say `gpt-5.4-mini` instead of `GPT-4.1`.
+  b. Update `_estimate_cost()` stale comment and pricing values to `gpt-5.4-mini` ($0.75/$4.50 per 1M).
 
-### Task 5 — Update Current Project Context
-- Files: `.github/CONTEXT.md`
-- What: Add the new workflow docs to the key file map, add `phase3-implementer` to the agent usage guide, and document the new context-first retrieval workflow.
-- Contracts: Context documentation only.
+### Task 4 — Fix tokens.py docstring
+- Files: `backend/app/utils/tokens.py`
+- What: Update `get_processing_strategy` docstring to remove `GPT-4.1` / `GPT-4o-mini` references.
+
+### Task 5 — Rewrite model section in IMPLEMENTATION_PLAN.md
+- Files: `project-documentation/IMPLEMENTATION_PLAN.md`
+- What: Replace any "Why Not GPT-4.1-mini" / stale model table with current routing and rationale.
+
+### Task 6 — Update guidance files
+- Files: `.github/CONTEXT.md`, `.github/copilot-instructions.md`, `.github/instructions/backend-python.instructions.md`
+- What: Update model routing table to show `gpt-5.4-mini` for long guides.
 
 ## Risks
-- Workflow docs drifting from reality: mitigate by keeping `.github/CONTEXT.md` authoritative and linking from all new docs instead of duplicating detailed architecture.
-- Over-documenting the same rule in multiple places: mitigate by making `.github/RAG-INDEX.md` a router to authoritative sources, not a second copy.
-- Accidental scope creep into Stripe activation: mitigate by explicitly keeping env and price setup out of this slice.
+- Generator fallback currently silently overrides the model the worker chose; Task 2 fixes this.
+- Pricing in `_estimate_cost` is monitoring-only (not billed), so wrong values are observability debt, not a billing bug.
 
 ## Validation
-- Docs: confirm all new workflow docs reference existing files and match the current repo layout.
-- Agents: read each updated agent file and verify `.github/CONTEXT.md` is a required first step.
-- Repo hygiene: ensure `.env.local` remains ignored and no payment env var is added in this slice.
-- Manual: confirm the remaining Stripe work is clearly isolated as the next commit.
+- `cd backend && pytest -v` must pass after each task.
+- Manual: confirm `get_settings().guide_model_long == "gpt-5.4-mini"` after Task 1.
 
-## Stripe Activation Scope (Explicitly Out Of This Commit)
-- Create the Stripe product and recurring price in the Stripe Dashboard.
-- Set `NEXT_PUBLIC_STRIPE_PRO_PRICE_ID` in `frontend/.env.local`.
-- Run checkout, portal, webhook, and billing-status reconciliation tests.
-- Commit payment-system activation in the next commit only.
+## Out Of Scope
+- Stripe activation remains excluded from this slice.
+- chunk-and-merge restoration deferred — gpt-5.4-mini's 400K context handles ≤200K transcripts in one pass.

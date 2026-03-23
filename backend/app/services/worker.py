@@ -203,14 +203,14 @@ async def process_job(
             raise TranscriptError(
                 f"Transcript too long: {token_count} tokens",
                 code="TRANSCRIPT_TOO_LONG",
-                user_message="This video is too long to process. Maximum supported length is ~8 hours.",
+                user_message="This video is too long to process. Maximum supported length is ~4 hours.",
             )
 
         log.info("job.tokens", tokens=token_count, strategy=strategy)
 
         # ── Step 4b: Choose AI model ──────────────────────────
-        # Short videos → Groq (fast, free)
-        # Long videos (30min+ / >15K tokens) → OpenAI GPT-4.1 (larger context, more reliable)
+        # Short videos → Groq (fast, very cheap)
+        # Long videos (30min+ / >13K tokens) → OpenAI gpt-5.4-mini (400K context, reliable for 4-hour videos)
         duration = metadata.duration_seconds if metadata else None
         use_openai = (
             token_count > settings.long_video_token_threshold
@@ -313,7 +313,7 @@ async def process_job(
         await log_api_usage(
             user_id=user_id,
             job_id=job_id,
-            model=settings.guide_model,
+            model=guide_model,
             input_tokens=token_count,
             output_tokens=output_tokens or int(token_count * 0.3),
             estimated_cost_usd=estimated_cost,
@@ -413,9 +413,10 @@ def _estimate_cost(token_count: int, strategy: str, tier: str) -> float:
     """Rough cost estimation for monitoring purposes."""
     settings = get_settings()
 
-    # GPT-4.1-mini pricing: $0.40 / 1M input, $1.60 / 1M output
-    input_cost_per_m = 0.40
-    output_cost_per_m = 1.60
+    # gpt-5.4-mini pricing: $0.75 / 1M input, $4.50 / 1M output
+    # Groq is essentially free-tier; this estimate represents the OpenAI upper bound.
+    input_cost_per_m = 0.75
+    output_cost_per_m = 4.50
 
     output_tokens_est = int(token_count * 0.3)
 

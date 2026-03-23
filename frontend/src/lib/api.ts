@@ -218,3 +218,10 @@ export async function createPortalSession(): Promise<PortalSessionResponse> {
 export async function getBillingStatus(): Promise<CreditStatus> {
   return apiFetch<CreditStatus>("/api/billing/status");
 }
+
+export async function activateCheckoutSession(sessionId: string): Promise<CreditStatus> {
+  return apiFetch<CreditStatus>(
+    `/api/billing/activate?session_id=${encodeURIComponent(sessionId)}`,
+    { method: "POST" }
+  );
+}
