@@ -23,6 +23,32 @@ from app.utils.tokens import chunk_transcript, count_tokens, get_processing_stra
 
 logger = structlog.get_logger()
 
+
+def _safe_transcript_budget(model_name: str) -> int:
+    """
+    Return the maximum safe transcript token count for a given model.
+
+    Reserves headroom for system/user prompt overhead and output tokens:
+    - gpt-5.* (400K context, 128K max output) → 200K transcript tokens safe
+    - gpt-4.* (1M context)                    → 200K transcript tokens safe
+    - Groq llama models (128K context)         → 90K transcript tokens safe
+    """
+    if model_name.startswith(("gpt-5", "gpt-4")):
+        return 200_000
+    return 90_000
+
+
+def _max_tokens_kwarg(model_name: str, limit: int) -> dict:
+    """
+    Return the correct token-limit keyword argument for the given model.
+
+    gpt-5.x models require 'max_completion_tokens'; all others use 'max_tokens'.
+    """
+    if model_name.startswith("gpt-5"):
+        return {"max_completion_tokens": limit}
+    return {"max_tokens": limit}
+
+
 # Load Jinja2 templates
 _TEMPLATES_DIR = Path(__file__).parent.parent / "prompts" / "templates"
 _jinja_env = Environment(
@@ -121,20 +147,21 @@ async def generate_study_guide(
         model=model_name,
     )
 
-    # Fallback to a cheaper model for long videos to avoid 429s on the main model
+    # Long transcripts (60K-200K tokens) use guide_model_long (gpt-5.4-mini, 400K context).
+    # This keeps generator routing aligned with the model selected in worker.py.
     if strategy == "single_pass_fallback":
-        model_name = "gpt-4o-mini"
+        model_name = settings.guide_model_long
         logger.info("generator.fallback_model", model=model_name, reason="high_token_count")
 
-    # Truncate transcript if it would overflow the model's context window.
-    is_openai_model = model_name.startswith("gpt-")
-    max_transcript_tokens = 200_000 if is_openai_model else 90_000
+    # Truncate transcript to the model's safe context budget.
+    max_transcript_tokens = _safe_transcript_budget(model_name)
     if token_count > max_transcript_tokens:
         logger.info("generator.truncating", original=token_count, limit=max_transcript_tokens)
         transcript_raw = truncate_to_tokens(transcript_raw, max_transcript_tokens)
         token_count = max_transcript_tokens
 
-    # We enforce single pass for everything now to save cost.
+    # Single-pass is sufficient for all accepted transcripts (≤200K tokens).
+    # gpt-5.4-mini's 400K context comfortably handles this range.
     return await _single_pass(
         transcript_raw, persona, tier, openai_client, settings,
         video_title, channel_name, duration_seconds, chapters, model_name,
@@ -218,7 +245,7 @@ async def _chunk_and_merge(
                     {"role": "user", "content": map_prompt},
                 ],
                 temperature=0.3,
-                max_tokens=2000,
+                **_max_tokens_kwarg(model_name or settings.guide_model, 2000),
             )
             extractions.append(response.choices[0].message.content)
             total_input += response.usage.prompt_tokens if response.usage else 0
@@ -312,7 +339,7 @@ async def _call_generation(
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=8192,
+            **_max_tokens_kwarg(resolved_model, 8192),
         )
 
         raw_text = response.choices[0].message.content
@@ -497,7 +524,7 @@ async def generate_quiz_from_guide(
             messages=[{"role": "user", "content": user_prompt + schema_hint}],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=2000,
+            **_max_tokens_kwarg(resolved_model, 2000),
         )
         raw_text = response.choices[0].message.content or ""
         data = json.loads(raw_text)

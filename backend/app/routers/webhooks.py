@@ -89,6 +89,7 @@ async def _handle_checkout_completed(data: dict) -> None:
     supabase.table("profiles").update({
         "tier": "pro",
         "daily_credit_limit": 15,  # Pro tier: 15 credits/day
+        "credits_used": 0,
         "stripe_customer_id": customer_id,
         "stripe_subscription_id": subscription_id,
     }).eq("id", user_id).execute()
@@ -121,6 +122,7 @@ async def _handle_subscription_updated(data: dict) -> None:
         supabase.table("profiles").update({
             "tier": "pro",
             "daily_credit_limit": 15,
+            "credits_used": 0,
         }).eq("id", user_id).execute()
     elif status in ("past_due", "unpaid"):
         logger.warning("stripe.subscription.payment_issue", user_id=user_id, status=status)

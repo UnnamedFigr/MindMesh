@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { formatTimeUntilReset } from "@/lib/utils";
 import { PRO_PLAN_SETTINGS_CTA } from "@/lib/billing";
-import { createCheckoutSession, createPortalSession } from "@/lib/api";
+import { createCheckoutSession, createPortalSession, getBillingStatus, activateCheckoutSession } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import Card, { CardHeader, CardBody } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -20,13 +21,32 @@ import {
   Shield,
 } from "lucide-react";
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { user, signOut } = useAuth();
-  const { credits, loading: creditsLoading } = useCredits();
+  const { credits, loading: creditsLoading, refresh } = useCredits();
   const [signingOut, setSigningOut] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [managing, setManaging] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [upgraded, setUpgraded] = useState(false);
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("upgraded") === "true") {
+      const sessionId = searchParams.get("session_id");
+      // Prefer direct session activation (works without webhooks/local dev);
+      // fall back to live Stripe reconciliation if no session_id was provided.
+      const activate = sessionId
+        ? activateCheckoutSession(sessionId)
+        : getBillingStatus();
+
+      activate
+        .then(() => refresh())
+        .catch(() => refresh()) // refresh credits even if activation call fails
+        .finally(() => setUpgraded(true));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -42,7 +62,7 @@ export default function SettingsPage() {
         setBillingError("Billing is not yet configured. Please check back soon.");
         return;
       }
-      const successUrl = `${window.location.origin}/settings?upgraded=true`;
+      const successUrl = `${window.location.origin}/settings?upgraded=true&session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = `${window.location.origin}/settings`;
       const { checkout_url } = await createCheckoutSession(priceId, successUrl, cancelUrl);
       window.location.href = checkout_url;
@@ -71,6 +91,14 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {upgraded && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <Crown className="w-4 h-4 flex-shrink-0 text-green-600" />
+          <span>
+            <strong>Welcome to Pro!</strong> Your subscription is active — you now have 15 credits per day.
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
           <Settings className="w-5 h-5 text-indigo-600" />
@@ -293,5 +321,13 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense>
+      <SettingsContent />
+    </Suspense>
   );
 }

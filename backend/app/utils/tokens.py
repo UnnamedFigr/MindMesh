@@ -1,7 +1,7 @@
 """
 Token counting and chunking utilities.
 
-Uses tiktoken for accurate GPT token counts.
+Uses tiktoken for accurate token counts (cl100k_base, compatible with GPT-4 / GPT-5 families).
 Provides chunking strategy for very long transcripts (>100K tokens).
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import tiktoken
 
-# cl100k_base is used by GPT-4, GPT-4o, GPT-4.1 family
+# cl100k_base is used by GPT-4, GPT-4.1, GPT-5 family, and is a close approximation for Groq models
 _ENCODING = tiktoken.get_encoding("cl100k_base")
 
 
@@ -63,12 +63,12 @@ def chunk_transcript(
 
 def get_processing_strategy(token_count: int) -> str:
     """
-    Determine the processing strategy based on token count for cost optimization.
+    Determine the processing strategy based on token count.
 
     Returns:
-        "single_pass" for ≤60K tokens (Standard cost, GPT-4.1)
-        "single_pass_fallback" for 60K-200K tokens (Cheap fallback, GPT-4o-mini)
-        "reject" for >200K tokens (Too long even for fallback)
+        "single_pass"          for ≤60K tokens  — Groq or OpenAI gpt-5.4-mini, one API call
+        "single_pass_fallback" for 60K-200K tokens — OpenAI gpt-5.4-mini (400K context handles this)
+        "reject"               for >200K tokens — exceeds safe single-pass budget; caller raises an error
     """
     if token_count <= 60_000:
         return "single_pass"
